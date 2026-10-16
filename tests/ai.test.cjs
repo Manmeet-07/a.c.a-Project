@@ -35,3 +35,10 @@ test('sessions are signed, expiring and reject tampering',()=>{
   const env={ANTHROPIC_API_KEY:'test',SESSION_SECRET:'s'.repeat(32),REDIS_REST_URL:'https://redis.example',REDIS_REST_TOKEN:'test'};
   const guard=load('lib/ai-guard.ts',{process:{env}});const token=guard.newSession();assert.ok(guard.sessionId(token));assert.equal(guard.sessionId(token+'x'),null);assert.equal(guard.sessionId('forged.9999999999.'+'a'.repeat(64)),null);
 });
+test('AI config accepts Vercel Upstash and legacy KV Redis variable names',()=>{
+  const base={ANTHROPIC_API_KEY:'test',SESSION_SECRET:'s'.repeat(32)};
+  for (const redis of [{UPSTASH_REDIS_REST_URL:'https://redis.example',UPSTASH_REDIS_REST_TOKEN:'t'},{KV_REST_API_URL:'https://redis.example',KV_REST_API_TOKEN:'t'}]) {
+    assert.equal(load('lib/ai-guard.ts',{process:{env:{...base,...redis}}}).aiConfigured(),true);
+  }
+  assert.equal(load('lib/ai-guard.ts',{process:{env:base}}).aiConfigured(),false);
+});

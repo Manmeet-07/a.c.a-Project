@@ -12,8 +12,8 @@ The default installation provides local suggestions and never calls Anthropic. T
 | `ANTHROPIC_MODEL` | Current model ID; defaults to `claude-haiku-5-5` |
 | `SESSION_SECRET` | Random secret of at least 32 characters, shared by all instances |
 | `APP_ORIGINS` | Comma-separated exact HTTPS origins, without trailing slashes |
-| `REDIS_REST_URL` | HTTPS Redis REST endpoint supporting GET, SET, DEL, EVAL |
-| `REDIS_REST_TOKEN` | Credential scoped to that store |
+| `REDIS_REST_URL` | HTTPS Redis REST endpoint supporting GET, SET, DEL, EVAL (`UPSTASH_REDIS_REST_URL` or `KV_REST_API_URL` also accepted) |
+| `REDIS_REST_TOKEN` | Credential scoped to that store (`UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_TOKEN` also accepted) |
 | `AI_DAILY_CALL_LIMIT` | Maximum reserved provider attempts per UTC day; default 100, 0 disables calls |
 
 AI requires explicit consent on each analysis and a signed, one-hour, HttpOnly, SameSite=Strict visitor session. These are anonymous visitor sessions, not verified accounts. Each session can reserve ten analyses per rolling idle hour. A visitor can clear cookies; the atomic global daily budget remains the cost backstop. Add identity-based authentication if the service needs a per-person allowance. Rate-limit session creation and API traffic at your trusted edge/WAF; do not trust arbitrary client-supplied forwarding headers.
@@ -24,11 +24,15 @@ Results are keyed by a SHA-256 hash of the model and sanitized prompt, retained 
 
 ## Upload and hosting limits
 
-Serve over HTTPS. Configure a request-body ceiling of 11 MiB and a request-body timeout of 15 seconds at the reverse proxy. The application independently counts streamed bytes, including requests without Content-Length, before multipart parsing. It admits two uploads per process, permits a 10 MiB file, and gives each PDF worker 128 MiB old-generation heap, 16 MiB young-generation heap, and ten seconds. V8 heap limits are not total process RSS limits: also set a container memory limit and edge concurrency/rate limits. More than 20 pages is rejected. The worker emits at most 2,000 lines / 100,000 characters. Extracted text beyond that limit is truncated consistently with tailoring.
+Serve over HTTPS. Configure a request-body ceiling of 4.5 MB and a request-body timeout of 15 seconds at the reverse proxy. The application independently counts streamed bytes, including requests without Content-Length, before multipart parsing. It admits two uploads per process, permits a 4 MiB file (chosen to fit Vercel's 4.5 MB function body limit), and gives each PDF worker 128 MiB old-generation heap, 16 MiB young-generation heap, and ten seconds. V8 heap limits are not total process RSS limits: also set a container memory limit and edge concurrency/rate limits. More than 20 pages is rejected. The worker emits at most 2,000 lines / 100,000 characters. Extracted text beyond that limit is truncated consistently with tailoring.
 
 Package `workers/pdf.cjs` and `pdf2json` with the server; output tracing includes both. The worker is resolved from the application working directory, so start the server from the deployed project root. Test the packaged artifact on your host before promotion. Some serverless hosts enforce smaller request bodies; show their upload error to the user or deploy this endpoint on a Node server with the documented limits.
 
 The page uses a per-request nonce CSP and dynamic rendering. Script execution requires the nonce; inline styles remain allowed for existing React style attributes. HSTS, anti-framing, nosniff, referrer, and permissions headers are configured. Do not cache HTML containing per-request nonces.
+
+## Vercel
+
+Import the repository as a Next.js project; the default build command and Node 22 work as-is. Vercel Functions reject request bodies over 4.5 MB, which the 4 MiB upload limit fits within. In Project Settings → Environment Variables set `APP_ORIGINS` to the production URL (for example `https://your-project.vercel.app`, plus any custom domain) and `SESSION_SECRET`. Uploads from an origin not listed are rejected, so add a preview URL to `APP_ORIGINS` for the Preview environment when testing previews. For AI, add Upstash Redis from the Vercel Marketplace (its variables are read directly), `ANTHROPIC_API_KEY`, and optionally `AI_DAILY_CALL_LIMIT`, then redeploy. On the first preview deployment, upload a PDF to confirm the PDF worker is packaged, then run a tailor analysis.
 
 ## Monitoring
 

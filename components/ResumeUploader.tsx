@@ -5,8 +5,7 @@ import Icon from "./Icon";
 import ResumeProfile from "./ResumeProfile";
 import { CandidateProfile } from "@/types/profile";
 import { setProfile as saveProfile, useProfile } from "@/lib/storage";
-
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // keep in sync with app/api/upload/route.ts
+import { MAX_FILE_BYTES, MAX_FILE_LABEL } from "@/lib/limits";
 
 export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tailor" | "track") => void }) {
   const profile = useProfile();
@@ -31,7 +30,7 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
     }
     if (file.size > MAX_FILE_BYTES) {
       setStatus("error");
-      setError("File is too large (10MB max).");
+      setError(`File is too large (${MAX_FILE_LABEL} max).`);
       return;
     }
 
@@ -77,7 +76,7 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
         <strong>{status === "loading" ? "Getting to know your experience…" : profile ? "Keep your profile up to date" : "Bring your experience along"}</strong>
         <span className="upload-description">{status === "loading" ? "We’re extracting your details and skills." : "Choose your resume to create your career profile."}</span>
         <span className="upload-btn">{status === "loading" ? "Parsing resume…" : profile ? "Choose a new resume" : "Choose your resume"}<Icon name="arrow" /></span>
-        <span className="upload-caption">PDF format · Up to 10 MB</span>
+        <span className="upload-caption">PDF format · Up to {MAX_FILE_LABEL}</span>
         <input
           ref={inputRef}
           type="file"

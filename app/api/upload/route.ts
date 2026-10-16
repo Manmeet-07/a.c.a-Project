@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { parsePdf } from "@/lib/pdf";
-import { MAX_FILE_BYTES, MAX_UPLOAD_BYTES, MAX_RESUME_CHARS } from "@/lib/limits";
+import { MAX_FILE_BYTES, MAX_FILE_LABEL, MAX_UPLOAD_BYTES, MAX_RESUME_CHARS } from "@/lib/limits";
 import { checkRequest, readBounded, RequestError, routeResponse } from "@/lib/http";
 import { CandidateProfile } from "@/types/profile";
 import { extractSkills } from "@/lib/skills";
@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
 
     if (file.size > MAX_FILE_BYTES) {
       return NextResponse.json(
-        { success: false, error: "File is too large (10MB max)" },
+        { success: false, error: `File is too large (${MAX_FILE_LABEL} max)` },
         { status: 400 }
       );
     }

@@ -3,9 +3,12 @@ import { logEvent } from "./http";
 
 export const SESSION_COOKIE = "aca-session";
 const TTL = 3600;
+// Accept the names Vercel's Upstash integration creates (current and legacy KV).
+function redisUrl() { return process.env.REDIS_REST_URL || process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL; }
+function redisToken() { return process.env.REDIS_REST_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN; }
 export function aiConfigured() {
   return Boolean(process.env.ANTHROPIC_API_KEY && (process.env.SESSION_SECRET?.length ?? 0) >= 32 &&
-    process.env.REDIS_REST_URL?.startsWith("https://") && process.env.REDIS_REST_TOKEN);
+    redisUrl()?.startsWith("https://") && redisToken());
 }
 function sign(value: string) { return createHmac("sha256", process.env.SESSION_SECRET!).update(value).digest("hex"); }
 export function newSession() {
@@ -22,8 +25,8 @@ export function sessionId(token?: string) {
   return timingSafeEqual(Buffer.from(signature), Buffer.from(sign(`${id}.${expiry}`))) ? id : null;
 }
 export async function redis(command: (string | number)[]): Promise<unknown> {
-  const response = await fetch(process.env.REDIS_REST_URL!, {
-    method: "POST", headers: { authorization: `Bearer ${process.env.REDIS_REST_TOKEN}`, "content-type": "application/json" },
+  const response = await fetch(redisUrl()!, {
+    method: "POST", headers: { authorization: `Bearer ${redisToken()}`, "content-type": "application/json" },
     body: JSON.stringify(command), signal: AbortSignal.timeout(3000), cache: "no-store",
   });
   if (!response.ok) throw new Error("SharedStoreUnavailable");
