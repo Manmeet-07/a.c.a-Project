@@ -139,12 +139,14 @@ export function generateSuggestions(
 ): string[] {
   const suggestions: string[] = [];
   const profileLower = new Set(profileSkills.map((s) => s.toLowerCase()));
+  // Show adjacent skills with the candidate's own capitalization ("Docker", not "docker").
+  const displayName = new Map(profileSkills.map((s) => [s.toLowerCase(), s]));
 
   if (matchedSkills.length > 0) {
     suggestions.push(
       `Lead with your strongest overlap: surface ${matchedSkills
         .slice(0, 4)
-        .join(", ")} in your summary and in your first 1-2 bullet points -- ATS parsers and recruiters both weight early keyword placement heavily.`
+        .join(", ")} in your summary and first one or two bullet points. Applicant tracking systems and recruiters both give early keywords more weight.`
     );
   }
 
@@ -154,9 +156,10 @@ export function generateSuggestions(
     );
     if (adjacent.length > 0) {
       suggestions.push(
-        `The listing calls for "${missing}", which isn't on your profile. Don't claim it -- instead, emphasize your existing ${adjacent
+        `The listing asks for ${missing}, which isn't on your resume. Don't claim it. Instead, highlight your ${adjacent
           .slice(0, 2)
-          .join(" and ")} experience as the transferable foundation for it.`
+          .map((a) => displayName.get(a) ?? a)
+          .join(" and ")} experience as related groundwork.`
       );
     }
   }
@@ -168,17 +171,17 @@ export function generateSuggestions(
     suggestions.push(
       `No close match on your profile for: ${genuinelyMissing
         .slice(0, 6)
-        .join(", ")}. If you have real experience with these, add them to your base profile -- otherwise leave them out rather than listing unverified skills.`
+        .join(", ")}. If you have real experience with these, add them to your profile. Otherwise, leave them out.`
     );
   }
 
   if (suggestions.length === 0) {
     suggestions.push(
-      "Your profile already covers the keywords detected in this listing well. Focus edits on rephrasing bullet action verbs to mirror the JD's exact terminology."
+      "Your resume already covers the skills in this listing. Focus on rewording your bullet points to use the listing's exact terms."
     );
   }
 
-  if (!matchedSkills.length && !missingSkills.length) suggestions.unshift("No recognized skills in this listing; the score uses text similarity only.");
+  if (!matchedSkills.length && !missingSkills.length) suggestions.unshift("No skills from our list appear in this listing, so the score compares wording only.");
   return suggestions;
 }
 

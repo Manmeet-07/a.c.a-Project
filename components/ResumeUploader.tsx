@@ -9,7 +9,6 @@ import { MAX_FILE_BYTES, MAX_FILE_LABEL } from "@/lib/limits";
 
 export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tailor" | "track") => void }) {
   const profile = useProfile();
-  const [selectedFile, setSelectedFile] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -34,7 +33,6 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
       return;
     }
 
-    setSelectedFile(file.name);
     setStatus("loading");
 
     const formData = new FormData();
@@ -68,40 +66,52 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
     }
   }
 
-  return (
-    <div className={`profile-section flex flex-col gap-4 ${profile ? "has-profile" : ""}`} aria-busy={status === "loading"}>
-      <div className="section-heading"><span className="section-icon"><Icon name="file" /></span><div><h2>Your resume, reintroduced.</h2><p>Upload once. Put your experience to work.</p></div><span className="format-badge">PDF</span></div>
-      <label className={`upload-zone ${status === "loading" ? "upload-loading" : ""}`}>
-        <span className="upload-symbol"><Icon name="upload" /></span>
-        <strong>{status === "loading" ? "Getting to know your experience…" : profile ? "Keep your profile up to date" : "Bring your experience along"}</strong>
-        <span className="upload-description">{status === "loading" ? "We’re extracting your details and skills." : "Choose your resume to create your career profile."}</span>
-        <span className="upload-btn">{status === "loading" ? "Parsing resume…" : profile ? "Choose a new resume" : "Choose your resume"}<Icon name="arrow" /></span>
-        <span className="upload-caption">PDF format · Up to {MAX_FILE_LABEL}</span>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".pdf,application/pdf"
-          onChange={handleUpload}
-          disabled={status === "loading"}
-          className="upload-input"
-          aria-label="Upload PDF resume"
-        />
-      </label>
+  const loading = status === "loading";
+  const fileInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept=".pdf,application/pdf"
+      onChange={handleUpload}
+      disabled={loading}
+      className="file-input"
+      aria-label="Upload PDF resume"
+    />
+  );
 
-      {status === "loading" && <div className="resume-processing" role="status"><div className="processing-track"><span /></div><p>Reading your PDF and finding your contact details and skills<span className="processing-dots" aria-hidden="true">…</span></p><small>This can take a moment. Your existing profile stays available until the new one is ready.</small></div>}
-      {selectedFile && status !== "error" && status !== "loading" && (
-        <div className="selected-file">
-          <Icon name="check" /> {selectedFile}
+  return (
+    <div className="stack" aria-busy={loading}>
+      {profile ? (
+        <div className="card replace-row">
+          <span className="file-badge"><Icon name="file" /></span>
+          <div className="replace-copy">
+            <strong>{profile.fileName || "Your resume"}</strong>
+            <span>Updated {new Date(profile.updatedAt).toLocaleDateString()}</span>
+          </div>
+          <label className="btn btn-secondary file-button">
+            {loading ? "Reading…" : "Replace PDF"}
+            {fileInput}
+          </label>
         </div>
+      ) : (
+        <label className={`card drop-zone ${loading ? "is-loading" : ""}`}>
+          <span className="drop-icon"><Icon name="upload" /></span>
+          <strong>{loading ? "Reading your resume…" : "Upload your resume"}</strong>
+          <span className="muted">{loading ? "Finding your contact details and skills." : "Choose a PDF, or drop it here."}</span>
+          {!loading && <span className="btn btn-primary">Choose PDF</span>}
+          <span className="fine-print">PDF · up to {MAX_FILE_LABEL}</span>
+          {fileInput}
+        </label>
       )}
 
+      {loading && <div className="progress" role="status" aria-label="Reading your resume"><span /></div>}
+
       {status === "error" && error && (
-        <div className="error-banner" role="alert">
+        <div className="notice notice-warning" role="alert">
           {error}
         </div>
       )}
 
-      {!profile && <div className="profile-preview"><div className="preview-top"><span className="preview-avatar"><Icon name="profile" /></span><div><strong>Your profile will appear here</strong><p>Contact details and skills, brought together automatically.</p></div></div><div className="preview-tags"><span>Contact information</span><span>Experience</span><span>Skills &amp; strengths</span></div></div>}
       {profile && <ResumeProfile key={profile.updatedAt} profile={profile} onNavigate={onNavigate} />}
     </div>
   );

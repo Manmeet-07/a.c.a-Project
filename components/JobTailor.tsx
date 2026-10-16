@@ -4,10 +4,25 @@ import { useState } from "react";
 import { JobInput, TailorResult } from "@/types/job";
 import { Application } from "@/types/application";
 import { makeId, upsertApplication, useProfile } from "@/lib/storage";
+import Icon from "./Icon";
 
 const emptyJob: JobInput = { company: "", title: "", url: "", description: "" };
 
-export default function JobTailor() {
+function ScoreRing({ score, weak }: { score: number; weak: boolean }) {
+  const radius = 52;
+  const circumference = 2 * Math.PI * radius;
+  return (
+    <div className={`score-ring ${weak ? "is-weak" : ""}`}>
+      <svg viewBox="0 0 120 120" aria-hidden="true">
+        <circle className="score-track" cx="60" cy="60" r={radius} />
+        <circle className="score-value" cx="60" cy="60" r={radius} strokeDasharray={circumference} strokeDashoffset={circumference * (1 - Math.max(0, Math.min(100, score)) / 100)} />
+      </svg>
+      <span className="score-number">{score}</span>
+    </div>
+  );
+}
+
+export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile") => void }) {
   const profile = useProfile();
   const [job, setJob] = useState<JobInput>(emptyJob);
   const [result, setResult] = useState<TailorResult | null>(null);
@@ -78,135 +93,131 @@ export default function JobTailor() {
 
   if (!profile) {
     return (
-      <div className="empty-state"><span className="empty-symbol">01</span><h2>Start with your story.</h2><p>Upload your resume in My profile to unlock job matching and personalized tailoring insights.</p><span className="empty-caption">Your next step: My profile → Choose your resume</span></div>
+      <div className="card empty">
+        <h2>Start with your resume</h2>
+        <p className="muted">Upload your resume on the Profile page, then come back to compare it with a job.</p>
+        {onNavigate && <button type="button" className="btn btn-primary" onClick={() => onNavigate("profile")}>Go to Profile</button>}
+      </div>
     );
   }
 
+  const loading = status === "loading";
+  const listed = result ? result.matchedSkills.length + result.missingSkills.length : 0;
+
   return (
-    <div className="flex flex-col gap-6 w-full">
-      <form onSubmit={handleSubmit} className="tailor-form">
-        <div className="section-heading"><div><h2>Let’s look at the opportunity.</h2><p>Add the role and paste its job description below.</p></div></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="field-label">Company<input
-            className="text-input"
-            disabled={status === "loading"}
-            placeholder="Company"
+    <div className="stack">
+      <form onSubmit={handleSubmit} className="card form">
+        <div className="field-grid">
+          <label className="field"><span className="field-label">Company</span><input
+            className="input"
+            disabled={loading}
             value={job.company}
             onChange={(e) => { setJob({ ...job, company: e.target.value }); setSaved(false); }}
           /></label>
-          <label className="field-label">Job title<input
-            className="text-input"
-            disabled={status === "loading"}
-            placeholder="Job title"
+          <label className="field"><span className="field-label">Job title</span><input
+            className="input"
+            disabled={loading}
             value={job.title}
             onChange={(e) => { setJob({ ...job, title: e.target.value }); setSaved(false); }}
           /></label>
         </div>
 
-        <label className="field-label">Job posting URL (optional)<input
-          className="text-input"
-            disabled={status === "loading"}
+        <label className="field"><span className="field-label">Job posting URL <span className="optional">(optional)</span></span><input
+          className="input"
+          disabled={loading}
           type="url"
-          placeholder="Job posting URL (optional)"
+          placeholder="https://"
           value={job.url}
           onChange={(e) => { setJob({ ...job, url: e.target.value }); setSaved(false); }}
         /></label>
 
-        <label className="field-label">Job description<textarea
+        <label className="field"><span className="field-label">Job description</span><textarea
           aria-label="Job description"
-          className="text-input textarea"
-          placeholder="Paste the full job description here..."
-          rows={8}
-          disabled={status === "loading"}
+          className="input textarea"
+          placeholder="Paste the full job description"
+          rows={9}
+          disabled={loading}
           value={job.description}
           onChange={(e) => { setJob({ ...job, description: e.target.value }); setResult(null); setSaved(false); }}
           required
-        /></label>
-        <p className="field-hint">A detailed description gives you a more useful match. At least 20 characters.</p>
+        /><span className="fine-print">At least 20 characters. The more detail, the better the comparison.</span></label>
 
-        <label className="field-label"><span><input type="checkbox" checked={useAI} onChange={e => setUseAI(e.target.checked)} disabled={status === "loading"} /> Use AI suggestions (sends resume excerpts and this job description to Anthropic)</span></label>
-        <p className="field-hint">Optional and off by default. We remove likely contact lines before sending; review your resume for other personal details. If AI is unavailable or reaches its usage limit, local suggestions are used.</p>
-        <button
-          type="submit"
-          className="primary-btn"
-          disabled={status === "loading" || job.description.trim().length < 20}
-        >
-          {status === "loading" ? "Analyzing your match…" : "Analyze match →"}
-        </button>
+        <label className="toggle">
+          <input type="checkbox" checked={useAI} onChange={e => setUseAI(e.target.checked)} disabled={loading} />
+          <span>
+            <strong>Use AI suggestions</strong>
+            <span className="muted">Sends resume excerpts (with likely contact lines removed) and this job description to Anthropic. If AI is unavailable or at its limit, local suggestions are used.</span>
+          </span>
+        </label>
+
+        <div className="form-actions">
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={loading || job.description.trim().length < 20}
+          >
+            {loading ? "Analyzing…" : "Analyze match"}
+          </button>
+        </div>
 
         {status === "error" && error && (
-          <div className="error-banner" role="alert">
+          <div className="notice notice-warning" role="alert">
             {error}
           </div>
         )}
       </form>
 
       {result && (
-        <div className="result-card">
-          <div className="score-row">
-            <div className={`score-gauge score-${result.band === "Strong match" ? "strong" : result.band === "Moderate match" ? "moderate" : "weak"}`}>
-              {result.score}
+        <section className="card result" aria-label="Match result">
+          <div className="score">
+            <ScoreRing score={result.score} weak={result.band === "Weak match"} />
+            <div>
+              <h2>{result.band}</h2>
+              <p className="muted">
+                {listed > 0
+                  ? `${result.matchedSkills.length} of ${listed} skills in this listing are on your resume.`
+                  : "Based on wording only."}
+                {result.aiEnhanced ? " Suggestions by AI." : ""}
+              </p>
+              <p className="fine-print">A score is a guide, not a verdict.</p>
+            </div>
+          </div>
+
+          <div className="skill-columns">
+            <div>
+              <h3>On your resume</h3>
+              <div className="chips">
+                {result.matchedSkills.map((s) => <span key={s} className="chip chip-match"><Icon name="check" />{s}</span>)}
+                {result.matchedSkills.length === 0 && <span className="muted">None found</span>}
+              </div>
             </div>
             <div>
-              <div className="score-band">{result.band}</div>
-              <div className="score-sub">
-                {result.matchedSkills.length} keyword
-                {result.matchedSkills.length === 1 ? "" : "s"} matched
-                {result.aiEnhanced ? " · AI-enhanced suggestions" : ""}
+              <h3>Missing</h3>
+              <div className="chips">
+                {result.missingSkills.map((s) => <span key={s} className="chip chip-missing">{s}</span>)}
+                {result.missingSkills.length === 0 && <span className="muted">Nothing missing</span>}
               </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-            <div>
-              <h4 className="font-semibold mb-2 text-emerald-300">
-                Matched ({result.matchedSkills.length})
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {result.matchedSkills.map((s) => (
-                  <span key={s} className="skill-badge skill-matched">
-                    {s}
-                  </span>
-                ))}
-                {result.matchedSkills.length === 0 && (
-                  <span className="text-sm text-gray-400">None detected</span>
-                )}
-              </div>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-2 text-amber-300">
-                Missing ({result.missingSkills.length})
-              </h4>
-              <div className="flex flex-wrap gap-2">
-                {result.missingSkills.map((s) => (
-                  <span key={s} className="skill-badge skill-missing">
-                    {s}
-                  </span>
-                ))}
-                {result.missingSkills.length === 0 && (
-                  <span className="text-sm text-gray-400">None -- full coverage</span>
-                )}
-              </div>
-            </div>
+          <div>
+            <h3>What to emphasize</h3>
+            <ol className="suggestions">
+              {result.suggestions.map((s, i) => <li key={i}>{s}</li>)}
+            </ol>
           </div>
 
-          <div className="mt-5">
-            <h4 className="font-semibold mb-2">Tailoring suggestions</h4>
-            <ul className="suggestion-list">
-              {result.suggestions.map((s, i) => (
-                <li key={i}>{s}</li>
-              ))}
-            </ul>
+          <div className="form-actions">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleSaveToTracker}
+              disabled={saved}
+            >
+              {saved ? <><Icon name="check" />Saved to Applications</> : "Save to Applications"}
+            </button>
           </div>
-
-          <button
-            className="secondary-btn mt-4"
-            onClick={handleSaveToTracker}
-            disabled={saved}
-          >
-            {saved ? "Saved to tracker ✓" : "Save to application tracker"}
-          </button>
-        </div>
+        </section>
       )}
     </div>
   );
