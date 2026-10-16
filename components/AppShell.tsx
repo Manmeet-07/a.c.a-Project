@@ -5,6 +5,7 @@ import ResumeUploader from "./ResumeUploader";
 import JobTailor from "./JobTailor";
 import ApplicationTracker from "./ApplicationTracker";
 import { useApplications, useProfile } from "@/lib/storage";
+import BackupControls from "./BackupControls";
 import Icon from "./Icon";
 
 type Tab = "profile" | "tailor" | "track";
@@ -42,15 +43,16 @@ export default function AppShell() {
         <div className="page-content">
           <section className="page-heading"><div className="eyebrow">{heading.eyebrow}</div><h1>{heading.title}<em>{heading.accent}</em></h1><p>{heading.description}</p></section>
           <div className="journey" aria-label="Application workflow">{TABS.map((t, i) => <button key={t.id} onClick={() => setTab(t.id)} className={`journey-step ${tab === t.id ? "journey-active" : ""}`} aria-pressed={tab === t.id}><span className="step-number">{i === 0 && profile ? <Icon name="check" /> : `0${i + 1}`}</span><span><strong>{["Build your profile", "Find your match", "Track your progress"][i]}</strong><small>{["Upload your resume", "Get tailored insights", "Organize opportunities"][i]}</small></span><Icon name="arrow" /></button>)}</div>
+          <BackupControls />
           <div className="content-grid">
             <section className="active-panel" aria-label={TABS.find(t => t.id === tab)?.label}>
               {tab === "profile" && <ResumeUploader onNavigate={setTab} />}
-              {tab === "tailor" && <JobTailor />}
+              <div hidden={tab !== "tailor"}><JobTailor key={profile?.updatedAt || "empty"} /></div>
               {tab === "track" && <ApplicationTracker />}
             </section>
             <aside className="context-rail">
               <div className="guide-card"><div className="eyebrow">MISSION NOTES</div><h2>{tab === "profile" ? "Your experience. A clearer picture." : tab === "tailor" ? "Be relevant. Stay authentic." : "Build a little momentum."}</h2><p>{tab === "profile" ? "Your resume is the foundation for smarter matches and a more focused job search." : tab === "tailor" ? "Use match insights to highlight the experience you already have. A score is a guide, not a verdict." : "Update each opportunity as it moves forward, so your next step is always clear."}</p><div className="guide-divider" />{["Start with your latest resume", "Highlight skills you actually have", "Review before you apply"].map((text, i) => <div className="guide-point" key={text}><span>0{i + 1}</span>{text}</div>)}</div>
-              <div className="privacy-note"><Icon name="shield" /><div><strong>Your workspace stays yours</strong><p>Your profile and tracker are saved in this browser. Resume parsing runs on the server.</p></div></div>
+              <div className="privacy-note"><Icon name="shield" /><div><strong>Your workspace stays yours</strong><p>Your profile and tracker are saved in this browser. Resume parsing runs on the server. AI is optional: when enabled, filtered resume excerpts and the job description are sent to Anthropic. Export backups to keep a copy outside this browser.</p></div></div>
             </aside>
           </div>
           <footer className="workspace-footer"><span>A little ambition. A whole new trajectory.</span><span>Autonomous Career Agent <span>·</span> ACA</span></footer>

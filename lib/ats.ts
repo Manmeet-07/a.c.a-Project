@@ -16,6 +16,7 @@ function tokenize(text: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9+.# ]/g, " ")
     .split(/\s+/)
+    .map(t => t.replace(/\.+$/, ""))
     .filter((t) => t.length > 1 && !STOPWORDS.has(t));
 }
 
@@ -24,6 +25,7 @@ function termFrequencyVector(tokens: string[]): Map<string, number> {
   for (const token of tokens) {
     vec.set(token, (vec.get(token) ?? 0) + 1);
   }
+  for (const [term, count] of vec) vec.set(term, 1 + Math.log(count));
   return vec;
 }
 
@@ -88,7 +90,7 @@ export function scoreMatch(
   // Blend keyword-vector cosine similarity with explicit skill coverage so a
   // resume that mentions the right named technologies scores well even if
   // overall wording differs a lot from the JD, and vice versa.
-  const blended = 0.45 * textSimilarity + 0.55 * skillCoverage;
+  const blended = jdSkills.length ? 0.45 * textSimilarity + 0.55 * skillCoverage : textSimilarity;
   const score = Math.round(Math.min(1, blended) * 100);
 
   return {
@@ -176,6 +178,7 @@ export function generateSuggestions(
     );
   }
 
+  if (!matchedSkills.length && !missingSkills.length) suggestions.unshift("No recognized skills in this listing; the score uses text similarity only.");
   return suggestions;
 }
 

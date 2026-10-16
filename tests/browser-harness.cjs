@@ -1,47 +1,70 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
-// Local browser harness. Synthetic data only. Run: node tests/browser-harness.cjs
-const fs = require('node:fs');
-const http = require('node:http');
-const vm = require('node:vm');
-const ts = require('typescript');
-const { spawn } = require('node:child_process');
-const path = require('node:path');
-const source = ts.transpileModule(fs.readFileSync('lib/bookmarklet.ts', 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS } }).outputText;
-const loaded = { exports: {} };
-vm.runInNewContext(source, { exports: loaded.exports });
-const build = loaded.exports.buildAutofillBookmarklet;
-const resumes = {
-  maya: ['Maya Chen', 'maya.chen@example.test', '+1 (202) 555-0142', '123 Maple Street', 'Boston, MA 02110', 'https://linkedin.com/in/maya-test', 'https://github.com/maya-test', 'https://maya.example.test', 'Skills: Python, SQL, React, TypeScript', 'Experience', 'Built reporting dashboards and web applications.'],
-  jordan: ["Jordan O'Neil", 'jordan.oneil@example.test', '415-555-0168', '48 Pine Road', 'Denver, CO 80202', 'https://linkedin.com/in/jordan-test', 'https://github.com/jordan-test', 'https://jordan.example.test', 'Skills: Java, Docker, AWS, PostgreSQL', 'Experience', 'Developed backend services and deployment pipelines.'],
-};
-function pdf(lines) {
-  const stream = 'BT /F1 12 Tf 50 740 Td ' + lines.map((l,i) => (i ? '0 -24 Td ' : '') + '(' + l.replace(/[\\()]/g, '\\$&') + ') Tj').join(' ') + ' ET';
-  const objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>', '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>', '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>', `<< /Length ${Buffer.byteLength(stream)} >>\nstream\n${stream}\nendstream`];
-  let data = '%PDF-1.4\n'; const offsets = [];
-  objs.forEach((obj,i) => { offsets.push(Buffer.byteLength(data)); data += `${i+1} 0 obj\n${obj}\nendobj\n`; });
-  const xref = Buffer.byteLength(data);
-  return data + `xref\n0 6\n0000000000 65535 f \n${offsets.map(o=>String(o).padStart(10,'0')+' 00000 n ').join('\n')}\ntrailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`;
-}
-const fields = [
-  ['first_name','First name'], ['last_name','Last name'], ['full_name','Full name'], ['email','Email address'], ['phone','Phone number'], ['address','Street address'], ['address2','Address line 2'], ['city','City'], ['state','State'], ['postal_code','Postal code'], ['linkedin','LinkedIn'], ['github','GitHub'], ['website','Website'], ['company','Company name'], ['emergency','Emergency contact name'], ['username','Username'], ['existing','Email already entered','reviewer@example.test'], ['readonly','Read-only full name','','readonly'],
-];
-const profiles = {};
-(async () => {
-  for (const [id,lines] of Object.entries(resumes)) {
-    const filename = path.resolve('tests/artifacts/'+id+'.pdf'); fs.writeFileSync(filename,pdf(lines));
-    const form = new FormData(); form.append('resume',new Blob([fs.readFileSync(filename)],{type:'application/pdf'}),id+'.pdf');
-    const response = await fetch('http://127.0.0.1:3000/api/upload',{method:'POST',body:form});
-    const result = await response.json(); if (!result.success) throw Error(id+': '+result.error);
-    profiles[id] = result.profile;
-  }
-  fs.writeFileSync('tests/artifacts/parsed-profiles.json',JSON.stringify(profiles,null,2));
-  const escape = s => s.replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;');
-  const server = http.createServer((req,res) => {
-    const id = req.url === '/jordan' ? 'jordan' : 'maya';
-    res.setHeader('content-type','text/html; charset=utf-8');
-    res.end(`<!doctype html><html lang="en"><title>ACA synthetic application test</title><style>body{font:14px system-ui;margin:25px auto;max-width:900px;background:#f4f6f8;color:#203040;padding:20px}h1{font-size:24px}form{display:grid;grid-template-columns:1fr 1fr;gap:13px}label{display:grid;gap:5px}input{padding:9px;border:1px solid #ccd4df;border-radius:5px}a{display:inline-block;margin:15px 10px 20px 0;padding:12px;background:#234f95;color:white;border-radius:5px}output{display:block;margin:20px 0;color:#256845}button{padding:10px}small{display:block;margin:8px 0}</style><h1>Application autofill test: ${escape(profiles[id].name)}</h1><p>Synthetic candidate data · Local test form · Nothing is sent to an employer</p><a href="${escape(build(profiles[id]))}">Run ACA Fill-Assist</a><a href="/${id === 'maya' ? 'jordan' : 'maya'}">Switch candidate</a><output id="events">Input events: 0 · Change events: 0 · Submissions: 0</output><form>${fields.map(([name,label,value='',attrs=''])=>`<label for="${name}">${label}<input id="${name}" name="${name}" value="${value}" ${attrs}></label>`).join('')}<button type="submit">Submit test form</button></form><script>const expected=${JSON.stringify(profiles[id])};let inputs=0,changes=0,submits=0;function show(){document.querySelector('output').textContent='Input events: '+inputs+' · Change events: '+changes+' · Submissions: '+submits+' · Email correct: '+(document.getElementById('email').value===expected.email)+' · Phone correct: '+(document.getElementById('phone').value===expected.phone)}document.addEventListener('input',()=>{inputs++;show()});document.addEventListener('change',()=>{changes++;show()});document.querySelector('form').addEventListener('submit',e=>{e.preventDefault();submits++;show()});</script></html>`);
-  });
-  server.listen(3102,'127.0.0.1',()=>console.log('Fixture http://127.0.0.1:3102/maya'));
-  const app = spawn(process.execPath,['node_modules/next/dist/bin/next','start','--port','3103','--hostname','127.0.0.1'],{windowsHide:true,stdio:'inherit'});
-  process.on('SIGINT',()=>{app.kill();server.close();process.exit(0)});
-})().catch(e=>{console.error(e.message);process.exitCode=1});
+// Self-contained production browser test. Synthetic data; dynamic port; cleanup
+// on success, failure, SIGINT, and SIGTERM. PLAYWRIGHT_EXECUTABLE_PATH optional.
+const { chromium }=require('@playwright/test');
+const {spawn}=require('node:child_process');
+const net=require('node:net');
+const fs=require('node:fs');
+const path=require('node:path');
+const assert=require('node:assert/strict');
+const {pdf}=require('./helpers.cjs');
+let server,browser,page;
+const errors=[];
+let logs='';
+async function cleanup(){if(browser){await browser.close().catch(()=>{});browser=null;}if(server){const child=server;server=null;child.kill();await Promise.race([new Promise(r=>child.once('exit',r)),new Promise(r=>setTimeout(r,3000))]);}}
+for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>{cleanup().finally(()=>process.exit(1));});
+async function port(){const listener=net.createServer();await new Promise(r=>listener.listen(0,'127.0.0.1',r));const value=listener.address().port;await new Promise(r=>listener.close(r));return value;}
+(async()=>{
+  const origin=`http://127.0.0.1:${await port()}`;
+  server=spawn(process.execPath,['node_modules/next/dist/bin/next','start','--hostname','127.0.0.1','--port',new URL(origin).port],{windowsHide:true,stdio:['ignore','pipe','pipe'],env:{...process.env,ANTHROPIC_API_KEY:'',APP_ORIGINS:origin}});
+  server.stdout.on('data',b=>{logs=(logs+b).slice(-8000);});server.stderr.on('data',b=>{logs=(logs+b).slice(-8000);});
+  let ready=false;
+  for(let i=0;i<100;i++){if(server.exitCode!==null)throw Error(logs);try{if((await fetch(origin+'/api/health')).ok){ready=true;break;}}catch{}await new Promise(r=>setTimeout(r,200));}
+  if(!ready)throw Error('Server failed to start: '+logs);
+  const response=await fetch(origin);const csp=response.headers.get('content-security-policy');assert.ok(csp.includes('nonce-'));assert.equal(response.headers.get('x-powered-by'),null);assert.equal(response.headers.get('x-content-type-options'),'nosniff');
+  const bundled=chromium.executablePath();
+  const candidates=[process.env.PLAYWRIGHT_EXECUTABLE_PATH,bundled,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].filter(Boolean);
+  const executablePath=candidates.find(p=>fs.existsSync(p));
+  if(!executablePath)throw Error('Install Chromium with npx playwright install chromium or set PLAYWRIGHT_EXECUTABLE_PATH');
+  browser=await chromium.launch({executablePath,headless:true});
+  page=await browser.newPage();page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(origin);
+  const lines=['Maya Chen','maya@example.test','202-555-0142','123 Maple Street','Boston, MA 02110','Skills: Python, SQL, React, TypeScript','Experience','Built reporting dashboards and web applications.'];
+  await page.getByLabel('Upload PDF resume').setInputFiles({name:'synthetic.pdf',mimeType:'application/pdf',buffer:pdf(lines)});
+  await page.getByRole('heading',{name:'Hello, Maya.'}).waitFor();
+  await page.getByRole('navigation').getByRole('button',{name:/Tailor a resume/}).click();
+  await page.getByLabel('Company',{exact:true}).fill('Example Company');
+  await page.getByLabel('Job title',{exact:true}).fill('Python Developer');
+  await page.getByLabel('Job description',{exact:true}).fill('We seek a Python SQL developer to build reporting dashboards and web applications.');
+  assert.equal(await page.getByRole('checkbox').isChecked(),false);
+  await page.getByRole('button',{name:'Analyze match'}).click();
+  await page.getByRole('button',{name:'Save to application tracker'}).waitFor();
+  await page.getByRole('navigation').getByRole('button',{name:/My profile/}).click();
+  await page.getByRole('navigation').getByRole('button',{name:/Tailor a resume/}).click();
+  assert.ok((await page.getByLabel('Job description',{exact:true}).inputValue()).includes('Python SQL'));
+  await page.getByLabel('Job title',{exact:true}).fill('Revised Developer');
+  await page.getByRole('button',{name:'Save to application tracker'}).click();
+  await page.getByRole('button',{name:'Saved to tracker'}).waitFor();
+  await page.getByRole('navigation').getByRole('button',{name:/Applications/}).click();
+  await page.getByLabel('Application status for Revised Developer').selectOption('interviewing');
+  // Status writes run inside an async Web Lock; reload only after they persist.
+  await page.waitForFunction(()=>(localStorage.getItem('aca:applications')||'').includes('"status":"interviewing"'),null,{timeout:5000});
+  await page.reload();
+  await page.getByRole('navigation').getByRole('button',{name:/Applications/}).click();
+  assert.equal(await page.getByLabel('Application status for Revised Developer').inputValue(),'interviewing');
+  // Clipboard rejection must provide a selectable fallback rather than an unhandled promise.
+  await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:()=>Promise.reject(Error('denied'))},configurable:true}));
+  await page.getByRole('button',{name:'Copy bookmarklet'}).click();await page.getByLabel('Bookmarklet code').waitFor();
+  // A second scoring of the same opportunity merges, keeping the workflow status.
+  await page.getByRole('navigation').getByRole('button',{name:/Tailor a resume/}).click();
+  await page.getByLabel('Company',{exact:true}).fill('Example Company');await page.getByLabel('Job title',{exact:true}).fill('Revised Developer');
+  await page.getByLabel('Job description',{exact:true}).fill('We seek a Python SQL developer to build reporting dashboards and web applications.');
+  await page.getByRole('button',{name:'Analyze match'}).click();await page.getByRole('button',{name:'Save to application tracker'}).click();await page.getByRole('button',{name:'Saved to tracker'}).waitFor();
+  await page.getByRole('navigation').getByRole('button',{name:/Applications/}).click();assert.equal(await page.locator('.tracker-row').count(),1);
+  // Storage failures are surfaced without changing the persisted record.
+  await page.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('full','QuotaExceededError');};});
+  await page.getByLabel('Application status for Revised Developer').selectOption('offer');await page.getByRole('alert').filter({hasText:'storage is full'}).waitFor();
+  assert.deepEqual(errors,[]);
+  const artifacts=path.resolve('tests/artifacts');fs.mkdirSync(artifacts,{recursive:true});await page.screenshot({path:path.join(artifacts,'flow.png'),fullPage:true});
+  console.log('PASS: upload → tailor → navigate → track → persist → deduplicate → clipboard/storage failures; production headers and hydration.');
+})().catch(async error=>{console.error(error);console.error('Browser errors:',errors);console.error('Server logs:',logs);if(page)console.error((await page.locator('body').innerText()).slice(0,5000));process.exitCode=1;}).finally(cleanup);

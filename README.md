@@ -17,7 +17,7 @@ Next.js app, with two deliberate deviations:
 1. **No separate backend/DB/queue infrastructure.** Everything runs as
    Next.js Route Handlers, and all user data (profile, applications) is
    persisted to the browser's `localStorage` instead of Postgres. There's
-   nothing to provision -- `npm install && npm run dev` is enough.
+   nothing to provision -- `npm ci && npm run dev` is enough.
 2. **No stealth/anti-bot-evasion automation.** The spec's Phase 3 calls for
    headless browser workers that rotate IPs and spoof fingerprints to
    auto-submit applications unattended. That's built specifically to defeat
@@ -45,20 +45,14 @@ Next.js app, with two deliberate deviations:
 ## Optional AI-enhanced suggestions
 
 The tailoring engine's *score* is always the deterministic heuristic above.
-Its *suggestion phrasing* can optionally be enhanced by an LLM: set
-`ANTHROPIC_API_KEY` in a `.env.local` file to enable it. Without a key, the
-app falls back to the built-in rule-based suggestions automatically -- no
-configuration required to use the app.
+Its suggestion phrasing can optionally use Anthropic after the user explicitly opts in. Paid calls require a signed visitor session, shared Redis rate/budget guards, and server-side credentials. Without all prerequisites, the app uses local suggestions.
 
-```
-# .env.local
-ANTHROPIC_API_KEY=sk-ant-...
-```
+See [DEPLOYMENT.md](DEPLOYMENT.md) for configuration, request/resource limits, account spend limits, monitoring, privacy, and the tracked dev-dependency advisory. Do not enable paid AI using an API key alone.
 
 ## Getting Started
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
@@ -75,4 +69,4 @@ Open [http://localhost:3000](http://localhost:3000).
   directional, not authoritative.
 - All data lives in `localStorage` in your browser; there's no multi-device
   sync or backend persistence. Clearing browser data clears your profile
-  and tracker.
+  and tracker unless you export a backup first. The app supports JSON export/import and preserves unreadable records for recovery.

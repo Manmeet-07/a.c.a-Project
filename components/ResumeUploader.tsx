@@ -56,7 +56,12 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
       }
 
       const newProfile: CandidateProfile = data.profile;
-      saveProfile(newProfile);
+      try { saveProfile(newProfile); }
+      catch (error) {
+        setStatus("error");
+        setError(error instanceof Error ? error.message : "Your browser storage is full or unavailable.");
+        return;
+      }
       setStatus("idle");
     } catch {
       setStatus("error");

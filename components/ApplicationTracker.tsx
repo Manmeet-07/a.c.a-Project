@@ -8,6 +8,7 @@ import {
 } from "@/types/application";
 import {
   deleteApplication,
+  updateApplicationStatus,
   makeId,
   upsertApplication,
   useApplications,
@@ -28,16 +29,21 @@ const STATUS_LABELS: Record<ApplicationStatus, string> = {
 export default function ApplicationTracker() {
   const profile = useProfile();
   const applications = useApplications();
+  const [error, setError] = useState("");
   const [showAddForm, setShowAddForm] = useState(false);
   const [draft, setDraft] = useState({ company: "", title: "", url: "" });
 
-  function updateStatus(id: string, status: ApplicationStatus) {
-    const app = applications.find((a) => a.id === id);
-    if (!app) return;
-    upsertApplication({ ...app, status, updatedAt: new Date().toISOString() });
+  async function updateStatus(id: string, status: ApplicationStatus) {
+    try { await updateApplicationStatus(id, status); setError(""); }
+    catch (error) { setError(error instanceof Error ? error.message : "Could not save status"); }
+  }
+  async function handleDelete(id: string) {
+    if (!window.confirm("Delete this application? Export a backup first if you may need it later.")) return;
+    try { await deleteApplication(id); setError(""); }
+    catch (error) { setError(error instanceof Error ? error.message : "Could not delete application"); }
   }
 
-  function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     if (!draft.company.trim() || !draft.title.trim()) return;
 
@@ -53,7 +59,8 @@ export default function ApplicationTracker() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    upsertApplication(application);
+    try { await upsertApplication(application); setError(""); }
+    catch (error) { setError(error instanceof Error ? error.message : "Could not save application"); return; }
     setDraft({ company: "", title: "", url: "" });
     setShowAddForm(false);
   }
@@ -61,6 +68,7 @@ export default function ApplicationTracker() {
   return (
     <div className="flex flex-col gap-6 w-full">
       <AutofillBookmarklet profile={profile} />
+      {error && <div className="error-banner" role="alert">{error}</div>}
 
       <div className="flex items-center justify-between">
         <h3 className="font-semibold text-lg">
@@ -152,7 +160,7 @@ export default function ApplicationTracker() {
                 </select>
                 <button
                   className="icon-btn"
-                  onClick={() => deleteApplication(app.id)}
+                  onClick={() => handleDelete(app.id)}
                   aria-label="Delete application"
                   title="Delete"
                 >

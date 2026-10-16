@@ -3,6 +3,8 @@
 import { useState } from "react";
 import type { CSSProperties } from "react";
 import type { CandidateProfile } from "@/types/profile";
+import { mentionsSkill } from "@/lib/skills";
+import ProfileEditor from "./ProfileEditor";
 import Icon from "./Icon";
 
 export default function ResumeProfile({ profile, onNavigate }: {
@@ -13,7 +15,7 @@ export default function ResumeProfile({ profile, onNavigate }: {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const visibleSkills = profile.skills.filter(skill => skill.toLowerCase().includes(query.toLowerCase().trim()));
   const evidence = selectedSkill
-    ? profile.resumeText.split(/\n/).filter(line => line.toLowerCase().includes(selectedSkill.toLowerCase())).slice(0, 3)
+    ? profile.resumeText.split(/\n/).filter(line => mentionsSkill(line, selectedSkill)).slice(0, 3)
     : [];
   const contactFields = [
     { label: "Email", value: profile.email },
@@ -29,6 +31,7 @@ export default function ResumeProfile({ profile, onNavigate }: {
 
   return (
     <div className="profile-discovery">
+      <ProfileEditor profile={profile} />
       <div className="discovery-banner" role="status"><span className="discovery-check"><Icon name="check" /></span><span>Your experience is in orbit.<small>Here’s what we found in your resume. Take a look around.</small></span><span className="discovery-spark" aria-hidden="true">✳</span></div>
       <section className="identity-stage">
         <div className="identity-orbit" aria-hidden="true"><span className="identity-orbit-ring" /><span className="identity-initials">{initials}</span><span className="identity-satellite" /></div>

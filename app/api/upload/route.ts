@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import PDFParser from "pdf2json";
+import { parsePdf } from "@/lib/pdf";
+import { MAX_FILE_BYTES, MAX_UPLOAD_BYTES, MAX_RESUME_CHARS } from "@/lib/limits";
+import { checkRequest, readBounded, RequestError, routeResponse } from "@/lib/http";
 import { CandidateProfile } from "@/types/profile";
 import { extractSkills } from "@/lib/skills";
 
@@ -8,7 +10,6 @@ import { extractSkills } from "@/lib/skills";
 // runtime -- being explicit avoids a hard-to-diagnose runtime crash.
 export const runtime = "nodejs";
 
-const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const SECTION_HEADER_WORDS = [
   "resume",
   "curriculum",
@@ -28,67 +29,6 @@ const SECTION_HEADER_WORDS = [
   "github",
   "portfolio",
 ];
-
-interface PdfTextRun {
-  T: string;
-}
-interface PdfTextObject {
-  x: number;
-  y: number;
-  R: PdfTextRun[];
-}
-interface PdfPage {
-  Texts: PdfTextObject[];
-}
-interface PdfData {
-  Pages: PdfPage[];
-}
-
-function decodeRun(run: PdfTextRun): string {
-  try {
-    return decodeURIComponent(run.T);
-  } catch {
-    return run.T;
-  }
-}
-
-/**
- * pdf2json returns text as a flat list of positioned runs per page, not
- * lines. The original implementation concatenated every run on a page into
- * one long string with no line breaks, which destroyed layout structure and
- * made line-sensitive heuristics (like "the name is usually its own line
- * near the top") unusable. This reconstructs line structure by grouping
- * runs that share a y-coordinate and sorting them left-to-right.
- */
-function extractLines(pdfData: PdfData): string[] {
-  const lines: string[] = [];
-
-  for (const page of pdfData.Pages ?? []) {
-    const rows = new Map<number, { x: number; text: string }[]>();
-
-    for (const textObj of page.Texts ?? []) {
-      const y = Math.round(textObj.y * 10) / 10;
-      const text = textObj.R.map(decodeRun).join("");
-      const row = rows.get(y) ?? [];
-      row.push({ x: textObj.x, text });
-      rows.set(y, row);
-    }
-
-    const sortedYs = Array.from(rows.keys()).sort((a, b) => a - b);
-    for (const y of sortedYs) {
-      const line = rows
-        .get(y)!
-        .sort((a, b) => a.x - b.x)
-        .map((part) => part.text)
-        .join(" ")
-        .replace(/\s+/g, " ")
-        .trim();
-      if (line) lines.push(line);
-    }
-  }
-
-  return lines;
-}
 
 function looksLikeName(line: string): boolean {
   const trimmed = line.trim();
@@ -110,8 +50,13 @@ function extractName(lines: string[]): string {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const formData = await req.formData();
+  return routeResponse("upload", async () => {
+    checkRequest(req, "multipart/form-data");
+    const bytesRead = await readBounded(req, MAX_UPLOAD_BYTES);
+    let formData: FormData;
+    try {
+      formData = await new Response(bytesRead as BodyInit, { headers: { "content-type": req.headers.get("content-type")! } }).formData();
+    } catch { throw new RequestError(400, "Invalid multipart form"); }
     const file = formData.get("resume");
 
     if (!file || !(file instanceof File)) {
@@ -144,22 +89,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid PDF file" }, { status: 400 });
     }
 
-    const pdfData = await new Promise<PdfData>((resolve, reject) => {
-      const pdfParser = new PDFParser();
-
-      pdfParser.on("pdfParser_dataError", (err) => {
-        reject(err instanceof Error ? err : new Error(String(err)));
-      });
-
-      pdfParser.on("pdfParser_dataReady", (data: PdfData) => {
-        resolve(data);
-      });
-
-      pdfParser.parseBuffer(buffer);
-    });
-
-    const lines = extractLines(pdfData);
-    const text = lines.join("\n");
+    const extractedLines = await parsePdf(buffer);
+    const text = extractedLines.join("\n").slice(0, MAX_RESUME_CHARS);
+    const lines = extractedLines.slice(0, 30).filter(line => line.length <= 500);
+    const header = lines.join("\n");
 
     if (!text.trim()) {
       return NextResponse.json(
@@ -172,11 +105,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const email =
-      text.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/)?.[0] || "";
+    const email = header.split(/\s+/).find(token => token.length <= 254 && /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(token)) || "";
 
     const phone =
-      text.match(
+      header.match(
         /(\+?\d{1,3})?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/
       )?.[0]?.trim() || "";
 
@@ -185,7 +117,7 @@ export async function POST(req: NextRequest) {
 
     const urls = Array.from(
       new Set(
-        Array.from(text.matchAll(/https?:\/\/[\w.-]+(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?/gi),
+        Array.from(header.matchAll(/https?:\/\/[\w.-]+(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?/gi),
           (match) => match[0].replace(/\/+$/, "")
         )
       )
@@ -258,14 +190,5 @@ export async function POST(req: NextRequest) {
       success: true,
       profile,
     });
-  } catch {
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to parse PDF",
-      },
-      { status: 422 }
-    );
-  }
+  });
 }

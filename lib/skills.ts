@@ -50,12 +50,12 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   { canonical: "Redux" },
 
   // Backend / runtimes
-  { canonical: "Node.js", aliases: ["NodeJS", "Node"] },
+  { canonical: "Node.js", aliases: ["NodeJS"] },
   { canonical: "Express", aliases: ["Express.js"] },
   { canonical: "Django" },
   { canonical: "Flask" },
   { canonical: "FastAPI" },
-  { canonical: "Spring Boot", aliases: ["Spring"] },
+  { canonical: "Spring Boot", aliases: ["Spring Framework"] },
   { canonical: ".NET", aliases: ["DotNet", "ASP.NET"] },
   { canonical: "GraphQL" },
   { canonical: "REST", aliases: ["RESTful", "REST API"] },
@@ -108,31 +108,23 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
   { canonical: "API Design" },
 ];
 
-/** Flat lookup: normalized alias/canonical string -> canonical skill name. */
-const LOOKUP: Map<string, string> = new Map();
-for (const def of SKILL_DEFINITIONS) {
-  LOOKUP.set(def.canonical.toLowerCase(), def.canonical);
-  for (const alias of def.aliases ?? []) {
-    LOOKUP.set(alias.toLowerCase(), def.canonical);
-  }
+// Ambiguous words require a technical list/context, not ordinary prose.
+const AMBIGUOUS = new Set(["C", "R", "Go", "Express", "Swift", "Spark", "REST", "ML", "TS", "JS"]);
+function matches(text: string, needle: string): boolean {
+  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const tail = needle === "C" ? "(?![a-zA-Z0-9+#])" : needle === "R" ? "(?![a-zA-Z0-9&])" : "(?![a-zA-Z0-9])";
+  const pattern = new RegExp(`(?<![a-zA-Z0-9])${escaped}${tail}`, AMBIGUOUS.has(needle) ? "" : "i");
+  if (!AMBIGUOUS.has(needle)) return pattern.test(text);
+  return text.split(/\n/).some(line => pattern.test(line) && (
+    /^\s*(skills|technologies|languages|stack)\s*:/i.test(line) ||
+    /^\s*[\w.+#/-]+(?:\s*[,|]\s*[\w.+#/-]+)+\s*$/.test(line) ||
+    new RegExp(`${escaped}\\s+(programming|language|developer|development|framework|API)\\b`).test(line)
+  ));
 }
-
-/**
- * Finds every known skill mentioned in `text` and returns the deduped,
- * canonical skill names. Uses word-boundary matching so short aliases like
- * "R" or "Go" don't match inside unrelated words.
- */
+export function mentionsSkill(text: string, canonical: string): boolean {
+  const definition = SKILL_DEFINITIONS.find(skill => skill.canonical === canonical);
+  return Boolean(definition && [definition.canonical, ...(definition.aliases || [])].some(needle => matches(text, needle)));
+}
 export function extractSkills(text: string): string[] {
-  const found = new Set<string>();
-  const lower = text.toLowerCase();
-
-  for (const [needle, canonical] of LOOKUP) {
-    const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const pattern = new RegExp(`(?<![a-z0-9])${escaped}(?![a-z0-9])`, "i");
-    if (pattern.test(lower)) {
-      found.add(canonical);
-    }
-  }
-
-  return Array.from(found).sort();
+  return SKILL_DEFINITIONS.filter(skill => mentionsSkill(text, skill.canonical)).map(skill => skill.canonical).sort();
 }
