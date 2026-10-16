@@ -47,6 +47,8 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await page.getByRole('button',{name:'Saved to tracker'}).waitFor();
   await page.getByRole('navigation').getByRole('button',{name:/Applications/}).click();
   await page.getByLabel('Application status for Revised Developer').selectOption('interviewing');
+  // Status writes run inside an async Web Lock; reload only after they persist.
+  await page.waitForFunction(()=>(localStorage.getItem('aca:applications')||'').includes('"status":"interviewing"'),null,{timeout:5000});
   await page.reload();
   await page.getByRole('navigation').getByRole('button',{name:/Applications/}).click();
   assert.equal(await page.getByLabel('Application status for Revised Developer').inputValue(),'interviewing');
