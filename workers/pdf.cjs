@@ -46,8 +46,9 @@ parser.on('pdfParser_dataReady', data => {
 });
 try {
   // pdf2json may read the backing ArrayBuffer; pooled Buffer offsets corrupt it.
-  const bytes = Buffer.alloc(workerData.length);
-  bytes.set(workerData);
+  const input = workerData.pdf;
+  const bytes = Buffer.alloc(input.length);
+  bytes.set(input);
   parser.parseBuffer(bytes);
 }
 catch { finish({ error: 'Could not read this PDF' }); }

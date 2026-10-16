@@ -35,6 +35,14 @@ test('PDF parser handles actual PDFs, page limits and resource bounds', {timeout
   await assert.rejects(parsePdf(pdf(['Skills: Python'],21)),e=>e.status===422);
   await assert.rejects(parsePdf(Buffer.from('%PDF-broken')),e=>e.status===422);
 });
+test('PDF worker reads its input after bundler workerData wrapping', {timeout:20000}, async()=>{
+  const {Worker}=require('node:worker_threads');
+  // Turbopack spawns workers with {...workerData, __turbopack_globals__}.
+  const worker=new Worker(require('node:path').resolve('workers/pdf.cjs'),{workerData:{...{pdf:pdf(['Ada Lovelace','Skills: Python'])},__turbopack_globals__:{}}});
+  const message=await new Promise((resolve,reject)=>{worker.once('message',resolve);worker.once('error',reject);});
+  await worker.terminate();
+  assert.ok(message.lines?.includes('Ada Lovelace'), JSON.stringify(message));
+});
 test('PDF worker timeout and abnormal exit always settle and terminate', async()=>{
   const {EventEmitter}=require('node:events'); let terminated=0;
   class Worker extends EventEmitter { terminate(){terminated++;return Promise.resolve(1);} }

@@ -12,7 +12,9 @@ export async function parsePdf(buffer: Buffer): Promise<string[]> {
   try {
     return await new Promise<string[]>((resolve, reject) => {
       worker = new Worker(path.join(process.cwd(), "workers/pdf.cjs"), {
-        workerData: buffer,
+        // Wrap the bytes: Turbopack spreads workerData into an object, which
+        // would turn a bare Buffer into index keys with no length.
+        workerData: { pdf: buffer },
         resourceLimits: { maxOldGenerationSizeMb: 128, maxYoungGenerationSizeMb: 16, stackSizeMb: 4 },
         stdout: true, stderr: true,
       });
