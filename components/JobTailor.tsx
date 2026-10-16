@@ -13,6 +13,7 @@ export default function JobTailor() {
   const [result, setResult] = useState<TailorResult | null>(null);
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [useAI, setUseAI] = useState(false);
   const [saved, setSaved] = useState(false);
 
   const [scoredJob, setScoredJob] = useState<JobInput | null>(null);
@@ -28,10 +29,12 @@ export default function JobTailor() {
     setSaved(false);
 
     try {
+      if (useAI) await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
       const res = await fetch("/api/tailor", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
+          useAI,
           resumeText: profile.resumeText,
           profileSkills: profile.skills,
           jobDescription: job.description,
@@ -54,18 +57,18 @@ export default function JobTailor() {
     }
   }
 
-  function handleSaveToTracker() {
+  async function handleSaveToTracker() {
     if (!result || !scoredJob) return;
     const application: Application = {
       id: makeId(),
-      job: scoredJob,
+      job: { ...job, description: scoredJob.description },
       tailorResult: result,
       status: "tailored",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     try {
-      upsertApplication(application);
+      await upsertApplication(application);
       setSaved(true);
     } catch {
       setStatus("error");
@@ -89,14 +92,14 @@ export default function JobTailor() {
             disabled={status === "loading"}
             placeholder="Company"
             value={job.company}
-            onChange={(e) => setJob({ ...job, company: e.target.value })}
+            onChange={(e) => { setJob({ ...job, company: e.target.value }); setSaved(false); }}
           /></label>
           <label className="field-label">Job title<input
             className="text-input"
             disabled={status === "loading"}
             placeholder="Job title"
             value={job.title}
-            onChange={(e) => setJob({ ...job, title: e.target.value })}
+            onChange={(e) => { setJob({ ...job, title: e.target.value }); setSaved(false); }}
           /></label>
         </div>
 
@@ -106,10 +109,11 @@ export default function JobTailor() {
           type="url"
           placeholder="Job posting URL (optional)"
           value={job.url}
-          onChange={(e) => setJob({ ...job, url: e.target.value })}
+          onChange={(e) => { setJob({ ...job, url: e.target.value }); setSaved(false); }}
         /></label>
 
         <label className="field-label">Job description<textarea
+          aria-label="Job description"
           className="text-input textarea"
           placeholder="Paste the full job description here..."
           rows={8}
@@ -120,6 +124,8 @@ export default function JobTailor() {
         /></label>
         <p className="field-hint">A detailed description gives you a more useful match. At least 20 characters.</p>
 
+        <label className="field-label"><span><input type="checkbox" checked={useAI} onChange={e => setUseAI(e.target.checked)} disabled={status === "loading"} /> Use AI suggestions (sends resume excerpts and this job description to Anthropic)</span></label>
+        <p className="field-hint">Optional and off by default. We remove likely contact lines before sending; review your resume for other personal details. If AI is unavailable or reaches its usage limit, local suggestions are used.</p>
         <button
           type="submit"
           className="primary-btn"

@@ -36,8 +36,8 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     .replace(/</g, "\\u003c")
     .replace(/>/g, "\\u003e")
     .replace(/&/g, "\\u0026")
-    .replace(/\\u2028/g, "\\u2028")
-    .replace(/\\u2029/g, "\\u2029");
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 
   const script = String.raw`(function(){
   var data = ${serializedData};
@@ -49,12 +49,12 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
   function fieldLabel(el) {
-    var text = [el.name, el.id, el.placeholder, el.title, el.getAttribute('aria-label'), el.getAttribute('data-testid')].join(' ');
-    if (el.labels) Array.prototype.forEach.call(el.labels, function(lbl) { text += ' ' + lbl.innerText; });
-    var parentLabel = el.closest('label');
-    if (parentLabel) text += ' ' + parentLabel.innerText;
-    return text.toLowerCase();
+    var labels = el.labels ? Array.prototype.map.call(el.labels, function(lbl) { return lbl.innerText; }).filter(Boolean) : [];
+    var parent = el.closest('label');
+    var text = el.getAttribute('aria-label') || labels[0] || (parent && parent.innerText) || el.placeholder || el.name || el.id || '';
+    return text.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\s*\*\s*$/, '').trim();
   }
+
   function shouldReplace(el, label) {
     var current = (el.value || '').trim();
     if (!current) return true;
@@ -66,27 +66,35 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
   function normalizeUrl(value) {
     return value.replace(/\/+$/, '');
   }
-  var fields = Array.prototype.slice.call(document.querySelectorAll('input, textarea'));
+  var fields = Array.prototype.slice.call(document.querySelectorAll('input'));
   var filled = 0;
   fields.forEach(function (el) {
-    if (/^(hidden|password|button|submit|reset|image|file|checkbox|radio)$/i.test(el.type) || el.disabled || el.readOnly) return;
+    if (!/^(text|email|tel|url|search)?$/i.test(el.type) || el.tagName === 'TEXTAREA' || el.disabled || el.readOnly) return;
     var label = fieldLabel(el);
-    if (/company|employer|reference|emergency|school|university|username/.test(label)) return;
+    if (label.length > 40 || /\?|company|employer|refer|emergency|school|university|username|security|password|start|\b(day|date)\b/.test(label)) return;
     if (!shouldReplace(el, label)) return;
-    var value = null;
-    if (/first(?:[\s_-]?name)?/.test(label) && data.firstName) value = data.firstName;
-    else if (/last(?:[\s_-]?name)?|surname/.test(label) && data.lastName) value = data.lastName;
-    else if (/full(?:[\s_-]?name)?|your(?:[\s_-]?name)?|\bname\b/.test(label) && data.name) value = data.name;
-    else if (/e-?mail/.test(label) && data.email) value = data.email;
-    else if (/phone|mobile|\btel(ephone)?\b/.test(label) && data.phone) value = data.phone;
-    else if (/\baddress\b/.test(label) && !/address[\s_-]*(2|line[\s_-]*2)/.test(label) && data.address) value = data.address;
-    else if (/\bcity\b/.test(label) && data.city) value = data.city;
-    else if (/\bstate\b/.test(label) && data.state) value = data.state;
-    else if (/\b(zip|postal|pin)\b/.test(label) && data.postalCode) value = data.postalCode;
-    else if (/linkedin/.test(label) && data.linkedin) value = normalizeUrl(data.linkedin);
-    else if (/github/.test(label) && data.github) value = normalizeUrl(data.github);
-    else if (/portfolio/.test(label) && data.portfolio) value = normalizeUrl(data.portfolio);
-    else if (/\b(url|website|web site|site)\b/.test(label) && data.website) value = normalizeUrl(data.website);
+    var field = null;
+    var autocomplete = (el.getAttribute('autocomplete') || '').trim().split(/\s+/).pop();
+    var standard = { 'given-name':'firstName', 'family-name':'lastName', name:'name', email:'email', tel:'phone', 'postal-code':'postalCode', 'address-level1':'state', 'address-level2':'city', 'street-address':'address', 'address-line1':'address', url:'website' };
+    if (standard[autocomplete]) field = standard[autocomplete];
+    else if (/^(legal )?first name$/.test(label)) field = 'firstName';
+    else if (/^(legal )?(last name|surname|family name)$/.test(label)) field = 'lastName';
+    else if (/^(legal |full |your )?name$/.test(label)) field = 'name';
+    else if (/^(e ?mail|email address)$/.test(label)) field = 'email';
+    else if (/^(phone|mobile|telephone|tel)( number)?$/.test(label)) field = 'phone';
+    else if (/^(street address|address|address line 1)$/.test(label)) field = 'address';
+    else if (/^city$/.test(label)) field = 'city';
+    else if (/^(state|province|state province)$/.test(label)) field = 'state';
+    else if (/^(zip|zip code|postal code)$/.test(label)) field = 'postalCode';
+    else if (/^linkedin( url| profile)?$/.test(label)) field = 'linkedin';
+    else if (/^github( url| profile)?$/.test(label)) field = 'github';
+    else if (/^portfolio( url)?$/.test(label)) field = 'portfolio';
+    else if (/^(website|personal website|website url)$/.test(label)) field = 'website';
+    if (el.type === 'email' && field !== 'email') return;
+    if (el.type === 'tel' && field !== 'phone') return;
+    if (el.type === 'url' && !/^(website|portfolio|linkedin|github)$/.test(field || '')) return;
+    var value = field && data[field];
+    if (value && /^(website|portfolio|linkedin|github)$/.test(field)) value = normalizeUrl(value);
     if (value) { setNativeValue(el, value); filled++; }
   });
   window.alert('ACA Fill-Assist filled ' + filled + ' field(s). Review everything before submitting -- nothing was submitted automatically.');

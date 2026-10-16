@@ -1,5 +1,9 @@
 # Pre-Production Audit Report: Autonomous Career Agent
 
+> Remediation update (2026-10-16): the findings below retain their original reproduction details. Status entries describe the source changes. Production enablement still requires the account/hosting actions in [DEPLOYMENT.md](DEPLOYMENT.md); L-02 retains an explicit upstream exception. AI provider calls were mocked in tests, not billed against a live key.
+
+> Verification: 18 regression tests, ESLint, TypeScript, production Webpack build, and Chromium upload → tailor → track flow. Production dependency audit: zero vulnerabilities. Full dev audit: five findings in the same unpatched braces chain. The local Windows sandbox cannot create Turbopack junctions; CI verifies the normal build on Linux.
+
 ## 🛑 Critical & Blocking Issues (Must Fix Before Staging)
 *List issues that will cause crashes, data breaches, or runaway agent loops.*
 
@@ -12,7 +16,8 @@
   2. Run contact extraction only on the header region (for example the first 30 lines), where contact details actually appear.
   3. Replace the email pattern with a linear one: tokenize on whitespace first, then test each token (≤254 chars) with an anchored regex, e.g. `tokens.find(t => t.length <= 254 && /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(t))`.
   4. Add a regression test that runs extraction on a 100 KB single token and asserts it finishes in under 100 ms.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Bounded resume/header text and anchored per-token email validation; 100 KB token timing regression.
 
 * **ID:** [C-02]
 * **Location:** `app/api/upload/route.ts` (Line 114, 134, 141-159, 252)
@@ -27,7 +32,8 @@
   2. Run pdf2json in a `worker_threads` Worker or child process with `resourceLimits: { maxOldGenerationSizeMb: 256 }` and a wall-clock timeout (for example 10 s, after which terminate the worker). Reject PDFs with more than about 20 pages; resumes don't need more.
   3. Stop accumulating once a max line count or char count is reached, then truncate `resumeText`. See H-05.
   4. Add a `setTimeout` reject inside the parse promise and always call `pdfParser.removeAllListeners()` and `destroy()` in `finally`.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Stream byte counting, early Content-Length check, two admitted uploads, bounded worker heap/time, page/text limits, guaranteed termination. Host memory/edge limits remain deployment prerequisites.
 
 * **ID:** [C-03]
 * **Location:** `app/api/tailor/route.ts` (Line 13-77), `lib/ai.ts` (Line 32-63)
@@ -40,7 +46,8 @@
   4. Add a global budget guard: a counter of daily AI calls/tokens in a shared store, which short-circuits to heuristics when exceeded. Also set a spend limit on the Anthropic workspace.
   5. Cache AI results keyed by `sha256(resumeText + jobDescription)` so retries and repeat submissions don't re-bill.
   6. Gate the AI call behind an explicit per-request opt-in flag from the client (see M-04).
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Explicit consent, JSON/origin checks, signed expiring visitor session, atomic shared per-session/global budgets, distributed cache and duplicate lock. Anthropic account spend cap and WAF configuration require operator setup.
 
 ## ⚠️ High Priority Issues (Functional & Security Bugs)
 *List issues that degrade performance, cause silent failures, or represent moderate security risks.*
@@ -59,7 +66,8 @@
   5. Use structured outputs (`output_config: { format: { type: "json_schema", schema: { type:"object", properties:{ suggestions:{ type:"array", items:{type:"string"}, minItems:3, maxItems:6 } }, required:["suggestions"], additionalProperties:false } } }`) instead of asking for a bare JSON array and hoping for no markdown fences.
   6. Raise `max_tokens` to give headroom (for example 2,000–4,000) and cap `output_config.effort` at `low`.
   7. Log every fallback reason (status, `stop_reason`, parse failure), without request content, and emit a metric so a dead integration pages someone.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Current configurable model, official SDK retries, structured output, typed text-block selection, stop-reason handling, bounded output, boot configuration check, structured fallback events. Live provider access must be verified with deployment credentials.
 
 * **ID:** [H-02]
 * **Location:** `lib/ai.ts` (Line 16-22, 38-46, 71-79), `app/api/tailor/route.ts` (Line 73-75)
@@ -69,7 +77,8 @@
   2. If fewer than 3 suggestions survive, fall back to `generateSuggestions()`.
   3. Consider not sending the raw missing-skill list. Send only the adjacency pairs from `ADJACENCY`, so the model is never handed the exact terms it must not recommend.
   4. Add golden-set tests: JD/resume pairs with known missing skills, asserting that no surviving suggestion claims a missing skill.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Conservative unsupported-skill, numeral/contact/phishing output filters; fewer than three safe suggestions falls back. Golden adversarial tests added. Filters reduce risk; users must still review prose for factual accuracy.
 
 * **ID:** [H-03]
 * **Location:** `lib/ai.ts` (Line 38-46)
@@ -79,7 +88,8 @@
   2. Strip zero-width and control characters and collapse whitespace before sending. Truncate on a sentence or line boundary, and tell the model the text was truncated.
   3. Apply the H-02 output filter, specifically rejecting URLs, email addresses, phone numbers, and requests for personal or financial information.
   4. Add adversarial test fixtures (an injection in the JD and hidden text in the PDF) to the test suite.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Untrusted inputs serialized as JSON data with explicit system instructions, control/zero-width removal, boundary truncation and output checks. Injection fixtures included.
 
 * **ID:** [H-04]
 * **Location:** `lib/bookmarklet.ts` (Line 77-89)
@@ -105,7 +115,8 @@
   5. Exclude `refer`, `security`, `password`, `start`, `day` and `date`.
   6. Restrict by input type (`email` → email, `tel` → phone, `url` → URLs).
   7. Extend the regression test with these 8 negative labels.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Autocomplete-first and anchored labels, input-type checks, textarea/question/unsafe-label exclusion; all eight negative labels tested.
 
 * **ID:** [H-05]
 * **Location:** `app/api/upload/route.ts` (Line 162, 252), `app/api/tailor/route.ts` (Line 31), `components/ResumeUploader.tsx` (Line 59-63)
@@ -114,7 +125,8 @@
   1. Enforce a single shared constant (`MAX_RESUME_CHARS`, for example 100,000) in a shared module. Truncate (or reject with 422 and a clear message) in the upload route.
   2. In the tailor route, truncate to that constant instead of rejecting with 413 when the input comes from a stored profile.
   3. In ResumeUploader, wrap `saveProfile` separately and show "Your browser storage is full" for `QuotaExceededError`.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Shared 100,000-character limit, bounded extraction, stored-resume truncation and actionable browser-storage errors.
 
 * **ID:** [H-06]
 * **Location:** `lib/storage.ts` (Line 75-76, 84-86, 97-100, 111-120), `components/ApplicationTracker.tsx` (Line 37, 56, 155)
@@ -128,7 +140,8 @@
   3. In `upsertApplication`, merge only the fields being changed (`{ ...freshRecord, status, updatedAt }`), using the fresh record read from storage.
   4. Add JSON export/import (backup) before production.
   5. Longer term, move persistence to the backend so data survives a device or browser change.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Typed storage errors, versioned legacy migration, preserved quarantine, future-version write protection, Web Locks, fresh-record status patches, JSON backups/import and pre-import recovery snapshot. Backend synchronization remains longer-term scope.
 
 ## 🟡 Medium Priority (Edge Cases & Error Handling)
 *List unhandled edge cases, missing fallbacks, or brittle logic.*
@@ -137,7 +150,8 @@
 * **Location:** `lib/skills.ts` (Line 27-28, 35, 53-54, 58, 61, 69, 131)
 * **Description:** Short and common-word skill names and aliases (`C`, `R`, `Go`, `Node`, `Express`, `Spring`, `REST`, `ML`, `Swift`, `Spark`, `TS`) match ordinary English. Reproduced: the prose *"Spring 2025 Dean's list. I go above and beyond, take the rest of the work… Vitamin C. R&D intern. Graph node… 5 ml sample"* extracts `C, Express, Go, Machine Learning, Node.js, R, REST, Spring Boot`. `C` also matches inside `C++`/`C#`. These false positives corrupt the stored profile skills, the match score, and the matched/missing lists, and the wrong "missing" list is then fed to the LLM (H-02).
 * **Actionable Fix:** Match ambiguous terms case-sensitively against the original text (`Go`, `R`, `C`, `REST`, `ML`), or only in a technical context (a "Skills" section, or a comma/pipe-separated list). Remove the `Spring` and `Node` aliases or require a qualifier (`Spring Boot`, `Spring Framework`, `Node.js`). Exclude `C` when it's followed by `++` or `#`. Add a false-positive regression fixture.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Ambiguous skills require technical context and case; removed broad Node/Spring aliases and excluded C++/C# from C. Shared evidence matcher and prose fixture.
 
 * **ID:** [M-02]
 * **Location:** `lib/ats.ts` (Line 17, 85-92)
@@ -146,7 +160,8 @@
   2. `tokenize` keeps `.` inside tokens, so `python.` (end of sentence) and `python` are different terms. Reproduced: their cosine similarity is 0.
   3. Raw term frequency with no IDF lets repeated filler words dominate.
 * **Actionable Fix:** When `jdSkills.length === 0`, use `score = textSimilarity` (re-weighted), and show "no recognized skills in this listing". Strip trailing punctuation per token (`t.replace(/[.]+$/, "")`) while keeping `.net`/`node.js`. Consider TF-IDF or BM25 weighting.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** No-skill listings use text similarity alone with an explanatory suggestion; trailing punctuation normalized; sublinear term-frequency weighting.
 
 * **ID:** [M-03]
 * **Location:** `next.config.mjs` (Line 1-3)
@@ -160,7 +175,8 @@
   | `Referrer-Policy` | `strict-origin-when-cross-origin` |
   | `Strict-Transport-Security` | `max-age=63072000; includeSubDomains` |
   | `Permissions-Policy` | `camera=(), microphone=(), geolocation=()` |
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Dynamic nonce CSP, anti-framing, HSTS, nosniff, referrer and permissions headers; powered-by disabled. Production browser checks verify headers and hydration.
 
 * **ID:** [M-04]
 * **Location:** `lib/ai.ts` (Line 32-63), `components/AppShell.tsx` (Line 53), `components/AutofillBookmarklet.tsx`
@@ -168,19 +184,22 @@
   1. When the AI key is set, the first 4,000 chars of the resume (name, email, phone, address) are sent to a third-party LLM provider with no disclosure or opt-in. The in-app privacy note says only "Resume parsing runs on the server", which is misleading under GDPR/CCPA expectations.
   2. The bookmarklet embeds the full contact card in a `javascript:` URL that ends up in synced browser bookmarks and the system clipboard.
 * **Actionable Fix:** Add an explicit "Use AI suggestions (sends your resume to Anthropic)" toggle, off by default, and pass it to `/api/tailor`. Redact the contact lines (email, phone, street address, URLs) from `resumeText` before sending; the model doesn't need them. Update the privacy copy. Document in the UI that the bookmark stores personal data.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** AI off-by-default opt-in, header/contact-line removal, privacy copy and bookmark/clipboard storage disclosure.
 
 * **ID:** [M-05]
 * **Location:** `app/api/upload/route.ts` (Line 261-269), `app/api/tailor/route.ts`, `lib/ai.ts` (Line 80-84)
 * **Description:** **Error handling and observability.** There is zero application logging. Every failure path either returns a generic message or silently falls back, so production issues (H-01, parser crashes, quota errors) are invisible. The upload catch-all maps *every* exception to `422 "Failed to parse PDF"`. Reproduced: a non-multipart JSON body returns 422 "Failed to parse PDF" instead of 400/415. Meanwhile pdf2json writes its own stack traces to stderr. There's no health endpoint and no request ID.
 * **Actionable Fix:** Add a structured logger (with resume and JD content redacted) that logs error class, route, duration and fallback reason. Distinguish request-shape errors (400/415) from parser errors (422) and timeouts (503). Add `/api/health`. Wire in error tracking (e.g. Sentry with PII scrubbing). Monitor the AI fallback rate.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Structured metadata-only request/fallback/token logs, request IDs, precise request/parser/timeout statuses and health route. External log collector and alert delivery require deployment setup.
 
 * **ID:** [M-06]
 * **Location:** `components/AutofillBookmarklet.tsx` (Line 22-27)
 * **Description:** `copyBookmarklet` awaits `navigator.clipboard.writeText` without try/catch. Clipboard writes reject on insecure origins (an HTTP staging host), when permission is denied, or when the document isn't focused, which raises an unhandled promise rejection with no user feedback. The 2.5 s `setTimeout` is never cleared on unmount.
 * **Actionable Fix:** Wrap the call in try/catch, show "Copy failed — select and copy manually", and fall back to a selectable read-only `<textarea>`. Store the timer ID in a ref and clear it in a `useEffect` cleanup.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Clipboard errors show a selectable manual-copy textarea; timer cleared on unmount.
 
 * **ID:** [M-07]
 * **Location:** `components/JobTailor.tsx` (Line 12, 48, 57-74), `components/AppShell.tsx` (Line 47-49)
@@ -190,13 +209,15 @@
   3. Re-scoring and saving creates duplicate tracker entries; there's no de-duplication by URL or by company+title.
   4. If the profile is re-uploaded while a result is displayed, the stale score can still be saved.
 * **Actionable Fix:** Lift the Tailor draft into a store (or `sessionStorage`) keyed by tab. Build the saved `job` from current inputs for company/title/url, keeping only the description bound to the score. Clear the result when `profile.updatedAt` changes. Warn on, or merge, duplicates.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Tailor stays mounted between tabs, profile changes invalidate it, saved jobs use current metadata, duplicate opportunities merge.
 
 * **ID:** [M-08]
 * **Location:** `app/api/tailor/route.ts` (Line 36-38)
 * **Description:** The API trusts client-supplied `profileSkills` and never derives skills from `resumeText`. Reproduced: `{"resumeText":"Python SQL dev", "jobDescription":"…Python SQL developer…"}` with `profileSkills` omitted returns `matchedSkills: []`, `missingSkills: ["Python","SQL"]`, and a suggestion telling the user they lack skills that are on their resume. The client can also inflate scores by sending arbitrary skills.
 * **Actionable Fix:** Server-side, compute `profileSkills = union(extractSkills(resumeText), sanitizedClientSkills ∩ vocabulary)`.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Server derives resume skills and unions only vocabulary-approved manually supplied skills.
 
 * **ID:** [M-09]
 * **Location:** `tests/regression.test.cjs`, `tests/browser-harness.cjs`, repository root (no CI config)
@@ -208,7 +229,8 @@
   5. The browser harness needs a manually started server on :3000, uses fixed ports, and leaves the spawned `next start` running unless it gets SIGINT.
   6. There's no CI workflow, so lint, typecheck, tests and audit aren't enforced on push.
 * **Actionable Fix:** Add a GitHub Actions workflow (`npm ci`, `lint`, `tsc --noEmit`, `test`, `npm audit --omit=dev`, `build`). Add unit tests for `getAIEnhancedSuggestions` with a mocked `fetch`/SDK covering every fallback branch. Add timing-bounded regression tests for C-01 and C-02. Add a Playwright e2e test for the full flow using `executablePath`.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Real NextRequest tests, AI/security/storage/resource regressions, production browser flow with free port/executablePath/cleanup, and GitHub Actions checks.
 
 ## 🔵 Low Priority (Tech Debt & Optimization)
 *List linting issues, deprecated methods, or prompt optimization opportunities.*
@@ -217,7 +239,8 @@
 * **Location:** `lib/bookmarklet.ts` (Line 39-40)
 * **Description:** `.replace(/\\u2028/g, "\\u2028")` matches the literal text ` ` and replaces it with itself. It's a no-op, so the intended escaping of raw U+2028/U+2029 never happens. Reproduced: the output contains no escape. It's harmless today (ES2019 allows these characters in string literals, and the script is URI-encoded), but it's misleading dead code.
 * **Actionable Fix:** Use `.replace(/ /g, "\\u2028").replace(/ /g, "\\u2029")` (a regex on the actual character), or delete the two lines.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Corrected actual U+2028/U+2029 escaping.
 
 * **ID:** [L-02]
 * **Location:** `package.json`, `package-lock.json`
@@ -227,7 +250,8 @@
   3. `next` uses a caret range (`^16.0.0`), so a deploy using `npm install` instead of `npm ci` can pick up untested minors.
   4. There's no `engines` field (Node was v22 here, `@types/node` is ^20).
 * **Actionable Fix:** Align `eslint-config-next` with the installed `next` minor. Pin `next` exactly. Add `"engines": { "node": ">=20.9" }` plus `.nvmrc`. Use `npm ci` in deploys. Track the upstream fix for the dev-only chain, or add an `overrides` entry for `braces` once a patched release exists.
-* **Status:** [ ] Unresolved
+* **Status:** [ ] Partially resolved — upstream dependency advisory remains
+* **Remediation:** Next and ESLint aligned/pinned, Node engine and .nvmrc added, npm ci enforced. Open upstream exception: latest braces 3.0.3 remains vulnerable; no safe patched override exists. See DEPLOYMENT.md.
 
 * **ID:** [L-03]
 * **Location:** `lib/ai.ts` (Line 16-22, 48-63)
@@ -238,37 +262,43 @@
   4. The full system prompt is re-sent uncached every request (it's small, so caching wouldn't help yet).
   5. No retry with backoff on 429/529 (the official SDK provides this).
 * **Actionable Fix:** Adopt `@anthropic-ai/sdk` with structured outputs. Make the persona configurable or derive it from the profile. Revisit caching only if the system prompt grows past the model's minimum cacheable length.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Official SDK, structured output and bounded retry; removed early-career-only persona.
 
 * **ID:** [L-04]
 * **Location:** `components/ResumeProfile.tsx` (Line 16)
 * **Description:** Skill "evidence" uses plain substring matching, so selecting `C`, `R` or `Go` shows arbitrary resume lines containing those letters as evidence. Aliases (`JS` → JavaScript) produce no evidence at all.
 * **Actionable Fix:** Reuse the word-boundary, alias-aware matcher from `lib/skills.ts` (export a `mentionsSkill(line, canonical)` helper).
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Profile evidence uses the shared alias-aware skill matcher.
 
 * **ID:** [L-05]
 * **Location:** `app/api/upload/route.ts` (Line 93-110, 178-181, 207-237)
 * **Description:** Profile extraction is US-centric. City/state/ZIP requires a `City, ST 12345` format, street suffixes are English-only, and the phone regex assumes the 3-3-4 NANP layout. The name heuristic rejects single-word names, names with more than 4 words, and names with lowercase particles ("van der Berg"). There's no UI to correct the extracted fields.
 * **Actionable Fix:** Add an editable contact card and skill list on the Profile tab. Consider `libphonenumber-js` for phone parsing. Document the supported locales.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Editable contact card and recognized skill list; documented US extraction bias and manual international corrections.
 
 * **ID:** [L-06]
 * **Location:** `lib/storage.ts` (Line 55-64)
 * **Description:** `isApplication` doesn't validate `tailorResult.band` or `aiEnhanced`. A corrupted `band` silently renders the "weak" gauge style.
 * **Actionable Fix:** Validate `band` against the union and `aiEnhanced` as a boolean, or replace the hand-written guards with a schema library (e.g. zod) shared with the API types.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Stored result band, finite score range and aiEnhanced boolean validated.
 
 * **ID:** [L-07]
 * **Location:** `components/ApplicationTracker.tsx` (Line 155)
 * **Description:** Delete is immediate, with no confirmation or undo.
 * **Actionable Fix:** Add a confirm step or an undo toast backed by a short-lived soft-delete.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** Delete requires confirmation.
 
 * **ID:** [L-08]
 * **Location:** `app/layout.tsx` (Line 2-13), `tsconfig.json` (Line 32)
 * **Description:** `next/font/google` fetches fonts at build time, so builds fail in network-restricted CI or air-gapped environments. The production build passed here only because network access was available. `tsconfig.json` also has a malformed-looking `include` entry (`, "next.config.mjs"` on its own line); it's valid JSON but suggests a manual edit.
 * **Actionable Fix:** Self-host the fonts via `next/font/local`, or make sure the CI runner has egress to Google Fonts. Tidy up `tsconfig.json`.
-* **Status:** [ ] Unresolved
+* **Status:** [x] Source remediation implemented
+* **Remediation:** System font stack removes build-time font downloads; tsconfig formatting cleaned.
 
 ---
 
