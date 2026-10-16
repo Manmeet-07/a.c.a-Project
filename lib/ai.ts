@@ -71,7 +71,8 @@ ${input.jobDescription.slice(0, 4000)}`;
     const parsed = JSON.parse(text);
     if (
       Array.isArray(parsed) &&
-      parsed.every((item) => typeof item === "string")
+      parsed.length >= 3 && parsed.length <= 6 &&
+      parsed.every((item) => typeof item === "string" && item.trim().length > 0 && item.length <= 1000)
     ) {
       return parsed;
     }

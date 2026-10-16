@@ -50,10 +50,7 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
   }
   function fieldLabel(el) {
     var text = [el.name, el.id, el.placeholder, el.title, el.getAttribute('aria-label'), el.getAttribute('data-testid')].join(' ');
-    if (el.id) {
-      var lbl = document.querySelector('label[for="' + el.id + '"]');
-      if (lbl) text += ' ' + lbl.innerText;
-    }
+    if (el.labels) Array.prototype.forEach.call(el.labels, function(lbl) { text += ' ' + lbl.innerText; });
     var parentLabel = el.closest('label');
     if (parentLabel) text += ' ' + parentLabel.innerText;
     return text.toLowerCase();
@@ -72,8 +69,9 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
   var fields = Array.prototype.slice.call(document.querySelectorAll('input, textarea'));
   var filled = 0;
   fields.forEach(function (el) {
-    if (/^(hidden|password|button|submit|reset|image|file|checkbox|radio)$/i.test(el.type) || el.disabled) return;
+    if (/^(hidden|password|button|submit|reset|image|file|checkbox|radio)$/i.test(el.type) || el.disabled || el.readOnly) return;
     var label = fieldLabel(el);
+    if (/company|employer|reference|emergency|school|university|username/.test(label)) return;
     if (!shouldReplace(el, label)) return;
     var value = null;
     if (/first(?:[\s_-]?name)?/.test(label) && data.firstName) value = data.firstName;
@@ -81,7 +79,7 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     else if (/full(?:[\s_-]?name)?|your(?:[\s_-]?name)?|\bname\b/.test(label) && data.name) value = data.name;
     else if (/e-?mail/.test(label) && data.email) value = data.email;
     else if (/phone|mobile|\btel(ephone)?\b/.test(label) && data.phone) value = data.phone;
-    else if (/\baddress\b/.test(label) && data.address) value = data.address;
+    else if (/\baddress\b/.test(label) && !/address[\s_-]*(2|line[\s_-]*2)/.test(label) && data.address) value = data.address;
     else if (/\bcity\b/.test(label) && data.city) value = data.city;
     else if (/\bstate\b/.test(label) && data.state) value = data.state;
     else if (/\b(zip|postal|pin)\b/.test(label) && data.postalCode) value = data.postalCode;

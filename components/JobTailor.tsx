@@ -15,10 +15,14 @@ export default function JobTailor() {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
+  const [scoredJob, setScoredJob] = useState<JobInput | null>(null);
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!profile) return;
 
+    setResult(null);
+    setScoredJob(null);
     setStatus("loading");
     setError(null);
     setSaved(false);
@@ -41,6 +45,7 @@ export default function JobTailor() {
         return;
       }
 
+      setScoredJob({ ...job });
       setResult(data.result as TailorResult);
       setStatus("idle");
     } catch {
@@ -50,68 +55,77 @@ export default function JobTailor() {
   }
 
   function handleSaveToTracker() {
-    if (!result) return;
+    if (!result || !scoredJob) return;
     const application: Application = {
       id: makeId(),
-      job,
+      job: scoredJob,
       tailorResult: result,
       status: "tailored",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    upsertApplication(application);
-    setSaved(true);
+    try {
+      upsertApplication(application);
+      setSaved(true);
+    } catch {
+      setStatus("error");
+      setError("Could not save. Browser storage may be full or unavailable.");
+    }
   }
 
   if (!profile) {
     return (
-      <div className="empty-state">
-        Upload a resume in the Profile tab first -- the tailoring engine
-        scores job descriptions against your parsed profile.
-      </div>
+      <div className="empty-state"><span className="empty-symbol">01</span><h2>Start with your story.</h2><p>Upload your resume in My profile to unlock job matching and personalized tailoring insights.</p><span className="empty-caption">Your next step: My profile → Choose your resume</span></div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
+    <div className="flex flex-col gap-6 w-full">
       <form onSubmit={handleSubmit} className="tailor-form">
+        <div className="section-heading"><div><h2>Let’s look at the opportunity.</h2><p>Add the role and paste its job description below.</p></div></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <input
+          <label className="field-label">Company<input
             className="text-input"
+            disabled={status === "loading"}
             placeholder="Company"
             value={job.company}
             onChange={(e) => setJob({ ...job, company: e.target.value })}
-          />
-          <input
+          /></label>
+          <label className="field-label">Job title<input
             className="text-input"
+            disabled={status === "loading"}
             placeholder="Job title"
             value={job.title}
             onChange={(e) => setJob({ ...job, title: e.target.value })}
-          />
+          /></label>
         </div>
 
-        <input
+        <label className="field-label">Job posting URL (optional)<input
           className="text-input"
+            disabled={status === "loading"}
+          type="url"
           placeholder="Job posting URL (optional)"
           value={job.url}
           onChange={(e) => setJob({ ...job, url: e.target.value })}
-        />
+        /></label>
 
-        <textarea
+        <label className="field-label">Job description<textarea
           className="text-input textarea"
           placeholder="Paste the full job description here..."
           rows={8}
+          disabled={status === "loading"}
           value={job.description}
-          onChange={(e) => setJob({ ...job, description: e.target.value })}
+          onChange={(e) => { setJob({ ...job, description: e.target.value }); setResult(null); setSaved(false); }}
           required
-        />
+        /></label>
+        <p className="field-hint">A detailed description gives you a more useful match. At least 20 characters.</p>
 
         <button
           type="submit"
           className="primary-btn"
           disabled={status === "loading" || job.description.trim().length < 20}
         >
-          {status === "loading" ? "Scoring..." : "Score match"}
+          {status === "loading" ? "Analyzing your match…" : "Analyze match →"}
         </button>
 
         {status === "error" && error && (

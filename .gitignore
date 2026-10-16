@@ -39,3 +39,9 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Synthetic browser-test output
+/tests/artifacts/
+
+# Local development server output
+/.aca-dev.log

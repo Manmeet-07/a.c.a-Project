@@ -1,12 +1,14 @@
 "use client";
 
 import { useRef, useState } from "react";
+import Icon from "./Icon";
+import ResumeProfile from "./ResumeProfile";
 import { CandidateProfile } from "@/types/profile";
 import { setProfile as saveProfile, useProfile } from "@/lib/storage";
 
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // keep in sync with app/api/upload/route.ts
 
-export default function ResumeUploader() {
+export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tailor" | "track") => void }) {
   const profile = useProfile();
   const [selectedFile, setSelectedFile] = useState("");
   const [status, setStatus] = useState<"idle" | "loading" | "error">("idle");
@@ -63,22 +65,29 @@ export default function ResumeUploader() {
   }
 
   return (
-    <div className="flex flex-col gap-4 max-w-4xl">
-      <label className="upload-btn">
-        {status === "loading" ? "Parsing..." : "📄 Upload Resume"}
+    <div className={`profile-section flex flex-col gap-4 ${profile ? "has-profile" : ""}`} aria-busy={status === "loading"}>
+      <div className="section-heading"><span className="section-icon"><Icon name="file" /></span><div><h2>Your resume, reintroduced.</h2><p>Upload once. Put your experience to work.</p></div><span className="format-badge">PDF</span></div>
+      <label className={`upload-zone ${status === "loading" ? "upload-loading" : ""}`}>
+        <span className="upload-symbol"><Icon name="upload" /></span>
+        <strong>{status === "loading" ? "Getting to know your experience…" : profile ? "Keep your profile up to date" : "Bring your experience along"}</strong>
+        <span className="upload-description">{status === "loading" ? "We’re extracting your details and skills." : "Choose your resume to create your career profile."}</span>
+        <span className="upload-btn">{status === "loading" ? "Parsing resume…" : profile ? "Choose a new resume" : "Choose your resume"}<Icon name="arrow" /></span>
+        <span className="upload-caption">PDF format · Up to 10 MB</span>
         <input
           ref={inputRef}
           type="file"
           accept=".pdf,application/pdf"
           onChange={handleUpload}
           disabled={status === "loading"}
-          hidden
+          className="upload-input"
+          aria-label="Upload PDF resume"
         />
       </label>
 
-      {selectedFile && status !== "error" && (
+      {status === "loading" && <div className="resume-processing" role="status"><div className="processing-track"><span /></div><p>Reading your PDF and finding your contact details and skills<span className="processing-dots" aria-hidden="true">…</span></p><small>This can take a moment. Your existing profile stays available until the new one is ready.</small></div>}
+      {selectedFile && status !== "error" && status !== "loading" && (
         <div className="selected-file">
-          {status === "loading" ? "⏳" : "✅"} {selectedFile}
+          <Icon name="check" /> {selectedFile}
         </div>
       )}
 
@@ -88,46 +97,8 @@ export default function ResumeUploader() {
         </div>
       )}
 
-      {profile && (
-        <div className="profile-card">
-          <h2 className="text-2xl font-bold mb-4">
-            {profile.name || "Name not detected"}
-          </h2>
-
-          <div className="space-y-2 text-gray-200">
-            <div>
-              <span className="font-semibold">Email:</span>{" "}
-              {profile.email || "Not detected"}
-            </div>
-
-            <div>
-              <span className="font-semibold">Phone:</span>{" "}
-              {profile.phone || "Not detected"}
-            </div>
-          </div>
-
-          <div className="mt-5">
-            <h3 className="font-semibold mb-2">
-              Skills ({profile.skills.length})
-            </h3>
-
-            {profile.skills.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill) => (
-                  <span key={skill} className="skill-badge">
-                    {skill}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-gray-400">
-                No known skills detected. You can still use this profile --
-                matching just won&apos;t have much to compare against yet.
-              </p>
-            )}
-          </div>
-        </div>
-      )}
+      {!profile && <div className="profile-preview"><div className="preview-top"><span className="preview-avatar"><Icon name="profile" /></span><div><strong>Your profile will appear here</strong><p>Contact details and skills, brought together automatically.</p></div></div><div className="preview-tags"><span>Contact information</span><span>Experience</span><span>Skills &amp; strengths</span></div></div>}
+      {profile && <ResumeProfile key={profile.updatedAt} profile={profile} onNavigate={onNavigate} />}
     </div>
   );
 }

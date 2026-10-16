@@ -14,6 +14,7 @@ import {
   useProfile,
 } from "@/lib/storage";
 import AutofillBookmarklet from "./AutofillBookmarklet";
+import { safeWebUrl } from "@/lib/urls";
 
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
   discovered: "Discovered",
@@ -58,7 +59,7 @@ export default function ApplicationTracker() {
   }
 
   return (
-    <div className="flex flex-col gap-6 max-w-4xl">
+    <div className="flex flex-col gap-6 w-full">
       <AutofillBookmarklet profile={profile} />
 
       <div className="flex items-center justify-between">
@@ -76,27 +77,28 @@ export default function ApplicationTracker() {
       {showAddForm && (
         <form onSubmit={handleAdd} className="tailor-form">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <input
+            <label className="field-label">Company<input
               className="text-input"
               placeholder="Company"
               value={draft.company}
               onChange={(e) => setDraft({ ...draft, company: e.target.value })}
               required
-            />
-            <input
+            /></label>
+            <label className="field-label">Job title<input
               className="text-input"
               placeholder="Job title"
               value={draft.title}
               onChange={(e) => setDraft({ ...draft, title: e.target.value })}
               required
-            />
+            /></label>
           </div>
-          <input
+          <label className="field-label">Job posting URL (optional)<input
             className="text-input"
+            type="url"
             placeholder="Job posting URL (optional)"
             value={draft.url}
             onChange={(e) => setDraft({ ...draft, url: e.target.value })}
-          />
+          /></label>
           <button type="submit" className="primary-btn">
             Add to tracker
           </button>
@@ -104,10 +106,7 @@ export default function ApplicationTracker() {
       )}
 
       {applications.length === 0 ? (
-        <div className="empty-state">
-          No applications yet. Tailor a job in the Tailor tab, or add one
-          manually above.
-        </div>
+        <div className="empty-state"><span className="empty-symbol">↗</span><h2>Your next opportunity belongs here.</h2><p>Save a matched role from Tailor a resume, or add an opportunity manually to start tracking your progress.</p></div>
       ) : (
         <div className="tracker-list">
           {applications.map((app) => (
@@ -123,9 +122,9 @@ export default function ApplicationTracker() {
                       {app.tailorResult.score}% match
                     </span>
                   )}
-                  {app.job.url && (
+                  {safeWebUrl(app.job.url) && (
                     <a
-                      href={app.job.url}
+                      href={safeWebUrl(app.job.url)}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="tracker-link"
@@ -139,6 +138,7 @@ export default function ApplicationTracker() {
               <div className="tracker-actions">
                 <select
                   className="status-select"
+                  aria-label={`Application status for ${app.job.title}`}
                   value={app.status}
                   onChange={(e) =>
                     updateStatus(app.id, e.target.value as ApplicationStatus)

@@ -97,19 +97,16 @@ function looksLikeName(line: string): boolean {
 
   const words = trimmed.split(/\s+/);
   if (words.length < 2 || words.length > 4) return false;
-  if (!words.every((w) => /^[A-Z][a-zA-Z'.-]*$/.test(w))) return false;
+  if (!words.every((w) => /^\p{Lu}[\p{L}\p{M}'’.-]*$/u.test(w))) return false;
 
   const lower = trimmed.toLowerCase();
   return !SECTION_HEADER_WORDS.some((h) => lower.includes(h));
 }
 
-function extractName(lines: string[], fullText: string): string {
-  const nearTop = lines.slice(0, 8).find(looksLikeName);
-  if (nearTop) return nearTop;
-
-  // Fall back to the original best-effort regex if nothing near the top
-  // matches (e.g. an unusual layout the y-grouping didn't reconstruct well).
-  return fullText.match(/([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)/)?.[0] ?? "";
+function extractName(lines: string[]): string {
+  // Stay within header lines. A document-wide fallback can mistake an
+  // address or work-history entry for the applicant's name.
+  return lines.slice(0, 8).find(looksLikeName) ?? "";
 }
 
 export async function POST(req: NextRequest) {
@@ -143,6 +140,9 @@ export async function POST(req: NextRequest) {
 
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
+    if (buffer.subarray(0, 5).toString("ascii") !== "%PDF-") {
+      return NextResponse.json({ success: false, error: "Invalid PDF file" }, { status: 400 });
+    }
 
     const pdfData = await new Promise<PdfData>((resolve, reject) => {
       const pdfParser = new PDFParser();
@@ -178,9 +178,9 @@ export async function POST(req: NextRequest) {
     const phone =
       text.match(
         /(\+?\d{1,3})?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}/
-      )?.[0] || "";
+      )?.[0]?.trim() || "";
 
-    const name = extractName(lines, text);
+    const name = extractName(lines);
     const skills = extractSkills(text);
 
     const urls = Array.from(
@@ -258,15 +258,14 @@ export async function POST(req: NextRequest) {
       success: true,
       profile,
     });
-  } catch (error) {
-    console.error("PDF Parse Error:", error);
+  } catch {
 
     return NextResponse.json(
       {
         success: false,
         error: "Failed to parse PDF",
       },
-      { status: 500 }
+      { status: 422 }
     );
   }
 }

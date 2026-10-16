@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from "react";
 import { CandidateProfile } from "@/types/profile";
-import { Application } from "@/types/application";
+import { APPLICATION_STATUSES, Application } from "@/types/application";
 
 /**
  * There is no backend/database in this build (see README) -- everything is
@@ -32,11 +32,38 @@ const listeners = new Set<Listener>();
 
 function subscribe(listener: Listener) {
   listeners.add(listener);
-  return () => listeners.delete(listener);
+  if (isBrowser()) window.addEventListener("storage", listener);
+  return () => {
+    listeners.delete(listener);
+    if (isBrowser()) window.removeEventListener("storage", listener);
+  };
 }
 
 function notify() {
   listeners.forEach((listener) => listener());
+}
+
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+function isProfile(value: unknown): value is CandidateProfile {
+  return isRecord(value) && ["name", "email", "phone", "resumeText", "updatedAt"].every(k => typeof value[k] === "string") &&
+    Array.isArray(value.skills) && value.skills.every(s => typeof s === "string") &&
+    ["address", "city", "state", "postalCode", "linkedin", "github", "portfolio", "website", "fileName"].every(k => value[k] === undefined || typeof value[k] === "string");
+}
+function isApplication(value: unknown): value is Application {
+  if (!isRecord(value) || !isRecord(value.job)) return false;
+  const result = value.tailorResult;
+  return ["id", "createdAt", "updatedAt"].every(k => typeof value[k] === "string") &&
+    APPLICATION_STATUSES.includes(value.status as Application["status"]) &&
+    ["company", "title", "description"].every(k => typeof (value.job as Record<string, unknown>)[k] === "string") &&
+    (value.job.url === undefined || typeof value.job.url === "string") &&
+    (result === undefined || (isRecord(result) && typeof result.score === "number" &&
+      ["matchedSkills", "missingSkills", "suggestions"].every(k => Array.isArray(result[k]) && result[k].every((s: unknown) => typeof s === "string"))));
+}
+function readRaw(key: string): string | null {
+  try { return isBrowser() ? window.localStorage.getItem(key) : null; } catch { return null; }
 }
 
 function readJSON<T>(key: string, fallback: T): T {
@@ -44,7 +71,10 @@ function readJSON<T>(key: string, fallback: T): T {
   try {
     const raw = window.localStorage.getItem(key);
     if (!raw) return fallback;
-    return JSON.parse(raw) as T;
+    const value: unknown = JSON.parse(raw);
+    if (key === KEYS.profile) return (isProfile(value) ? value : fallback) as T;
+    if (key === KEYS.applications) return (Array.isArray(value) ? value.filter(isApplication) : fallback) as T;
+    return fallback;
   } catch {
     return fallback;
   }
@@ -110,10 +140,10 @@ let profileSnapshotValue: CandidateProfile | null = null;
 
 function getProfileSnapshot(): CandidateProfile | null {
   if (!isBrowser()) return null;
-  const raw = window.localStorage.getItem(KEYS.profile);
+  const raw = readRaw(KEYS.profile);
   if (raw !== profileSnapshotRaw) {
     profileSnapshotRaw = raw;
-    profileSnapshotValue = raw ? (JSON.parse(raw) as CandidateProfile) : null;
+    profileSnapshotValue = getProfile();
   }
   return profileSnapshotValue;
 }
@@ -135,10 +165,10 @@ let applicationsSnapshotValue: Application[] = [];
 
 function getApplicationsSnapshot(): Application[] {
   if (!isBrowser()) return applicationsSnapshotValue;
-  const raw = window.localStorage.getItem(KEYS.applications);
+  const raw = readRaw(KEYS.applications);
   if (raw !== applicationsSnapshotRaw) {
     applicationsSnapshotRaw = raw;
-    applicationsSnapshotValue = raw ? (JSON.parse(raw) as Application[]) : [];
+    applicationsSnapshotValue = getApplications();
   }
   return applicationsSnapshotValue;
 }

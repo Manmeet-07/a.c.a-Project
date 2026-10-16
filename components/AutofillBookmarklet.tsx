@@ -10,17 +10,14 @@ export default function AutofillBookmarklet({
   profile: CandidateProfile | null;
 }) {
   const bookmarkletRef = useRef<HTMLAnchorElement | null>(null);
-  const [bookmarkletHref, setBookmarkletHref] = useState("");
+  const bookmarkletHref = profile ? buildAutofillBookmarklet(profile) : "";
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
-    if (!profile) return;
-    const href = buildAutofillBookmarklet(profile);
-    setBookmarkletHref(href);
     if (bookmarkletRef.current) {
-      bookmarkletRef.current.setAttribute("href", href);
+      bookmarkletRef.current.setAttribute("href", bookmarkletHref);
     }
-  }, [profile]);
+  }, [bookmarkletHref]);
 
   async function copyBookmarklet() {
     if (!bookmarkletHref) return;
@@ -34,27 +31,15 @@ export default function AutofillBookmarklet({
   return (
     <div className="bookmarklet-card">
       <h3 className="font-semibold mb-2">Fill-assist bookmarklet</h3>
-      <p className="text-sm text-gray-300 mb-3">
-        Drag the button below to your bookmarks bar. When you&apos;re on a
-        real application page (Greenhouse, Lever, Workday, etc.), click it to
-        fill in your name, email, and phone from your profile. It runs once,
-        in your own signed-in browser tab -- it never submits the form or
-        touches anything else on the page. Always review before you hit
-        submit.
-      </p>
-      <p className="text-sm text-gray-400 mb-3">
-        Note: this bookmarklet only fills standard contact fields like name,
-        email, phone, address, LinkedIn/GitHub/website URLs, etc. It does not
-        automatically fill job experience entries such as company, title, or
-        location on later application steps.
-      </p>
+      <p className="text-sm text-gray-300 mb-3">A little less typing for your next application. Drag ACA Fill-Assist to your bookmarks bar, then use it on an application page to fill your contact details. Review and submit yourself.</p>
+      <details className="bookmarklet-details"><summary>What can it fill?</summary><p>Name, email, phone, address, and professional links in standard fields. Work history and custom application controls still need your attention.</p></details>
       <a
         ref={bookmarkletRef}
         href="#"
         className="bookmarklet-btn"
         onClick={(e) => e.preventDefault()}
       >
-        📎 ACA Fill-Assist
+        ↗ ACA Fill-Assist
       </a>
       <button
         type="button"
@@ -65,8 +50,7 @@ export default function AutofillBookmarklet({
         {copied ? "Copied!" : "Copy bookmarklet"}
       </button>
       <p className="text-xs text-gray-500 mt-2">
-        (Clicking this link here does nothing -- it only works when dragged
-        to your bookmarks bar and clicked from a job application page.)
+        Drag to your bookmarks bar, or copy the bookmarklet to create a bookmark.
       </p>
     </div>
   );
