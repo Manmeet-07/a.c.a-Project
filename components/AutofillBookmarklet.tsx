@@ -35,31 +35,29 @@ export default function AutofillBookmarklet({
   if (!profile) return null;
 
   return (
-    <div className="bookmarklet-card">
-      <h3 className="font-semibold mb-2">Fill-assist bookmarklet</h3>
-      <p className="field-hint">This bookmark contains your contact details. Copying places them on your clipboard; browser bookmark sync may store them in your browser account. Only use it on sites you trust.</p>
-      {copyError && <div role="alert"><p>Copy failed — select and copy manually.</p><textarea aria-label="Bookmarklet code" readOnly value={bookmarkletHref} onFocus={e => e.target.select()} /></div>}
-      <p className="text-sm text-gray-300 mb-3">A little less typing for your next application. Drag ACA Fill-Assist to your bookmarks bar, then use it on an application page to fill your contact details. Review and submit yourself.</p>
-      <details className="bookmarklet-details"><summary>What can it fill?</summary><p>Name, email, phone, address, and professional links in standard fields. Work history and custom application controls still need your attention.</p></details>
-      <a
-        ref={bookmarkletRef}
-        href="#"
-        className="bookmarklet-btn"
-        onClick={(e) => e.preventDefault()}
-      >
-        ↗ ACA Fill-Assist
-      </a>
-      <button
-        type="button"
-        className="secondary-btn ml-3"
-        onClick={copyBookmarklet}
-        disabled={!bookmarkletHref}
-      >
-        {copied ? "Copied!" : "Copy bookmarklet"}
-      </button>
-      <p className="text-xs text-gray-500 mt-2">
-        Drag to your bookmarks bar, or copy the bookmarklet to create a bookmark.
-      </p>
-    </div>
+    <section className="card">
+      <div className="card-head"><h3>Fill-Assist</h3></div>
+      <p className="muted">Fills your name, email, phone, address and links on job application forms. Drag the button below to your bookmarks bar, then click it on an application page. Nothing is submitted for you; review every field before you apply.</p>
+      <div className="button-row">
+        <a
+          ref={bookmarkletRef}
+          href="#"
+          className="btn btn-primary bookmarklet"
+          onClick={(e) => e.preventDefault()}
+        >
+          ACA Fill-Assist
+        </a>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={copyBookmarklet}
+          disabled={!bookmarkletHref}
+        >
+          {copied ? "Copied" : "Copy bookmarklet"}
+        </button>
+      </div>
+      {copyError && <div className="notice notice-warning" role="alert"><p>Copy failed. Select the code below and copy it yourself.</p><textarea className="input code" aria-label="Bookmarklet code" readOnly value={bookmarkletHref} onFocus={e => e.target.select()} /></div>}
+      <p className="fine-print">The bookmark contains your contact details. Copying puts them on your clipboard, and browser bookmark sync may store them in your browser account. Only use it on sites you trust. Custom form controls and work history still need your attention.</p>
+    </section>
   );
 }

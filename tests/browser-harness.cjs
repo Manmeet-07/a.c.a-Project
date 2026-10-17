@@ -31,20 +31,20 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await page.goto(origin);
   const lines=['Maya Chen','maya@example.test','202-555-0142','123 Maple Street','Boston, MA 02110','Skills: Python, SQL, React, TypeScript','Experience','Built reporting dashboards and web applications.'];
   await page.getByLabel('Upload PDF resume').setInputFiles({name:'synthetic.pdf',mimeType:'application/pdf',buffer:pdf(lines)});
-  await page.getByRole('heading',{name:'Hello, Maya.'}).waitFor();
-  await page.getByRole('navigation').getByRole('button',{name:/Tailor a resume/}).click();
+  await page.getByRole('heading',{name:'Maya Chen'}).waitFor();
+  await page.getByRole('navigation').getByRole('button',{name:/^Match/}).click();
   await page.getByLabel('Company',{exact:true}).fill('Example Company');
   await page.getByLabel('Job title',{exact:true}).fill('Python Developer');
   await page.getByLabel('Job description',{exact:true}).fill('We seek a Python SQL developer to build reporting dashboards and web applications.');
   assert.equal(await page.getByRole('checkbox').isChecked(),false);
   await page.getByRole('button',{name:'Analyze match'}).click();
-  await page.getByRole('button',{name:'Save to application tracker'}).waitFor();
-  await page.getByRole('navigation').getByRole('button',{name:/My profile/}).click();
-  await page.getByRole('navigation').getByRole('button',{name:/Tailor a resume/}).click();
+  await page.getByRole('button',{name:'Save to Applications'}).waitFor();
+  await page.getByRole('navigation').getByRole('button',{name:/^Profile/}).click();
+  await page.getByRole('navigation').getByRole('button',{name:/^Match/}).click();
   assert.ok((await page.getByLabel('Job description',{exact:true}).inputValue()).includes('Python SQL'));
   await page.getByLabel('Job title',{exact:true}).fill('Revised Developer');
-  await page.getByRole('button',{name:'Save to application tracker'}).click();
-  await page.getByRole('button',{name:'Saved to tracker'}).waitFor();
+  await page.getByRole('button',{name:'Save to Applications'}).click();
+  await page.getByRole('button',{name:'Saved to Applications'}).waitFor();
   await page.getByRole('navigation').getByRole('button',{name:/Applications/}).click();
   await page.getByLabel('Application status for Revised Developer').selectOption('interviewing');
   // Status writes run inside an async Web Lock; reload only after they persist.
@@ -56,10 +56,10 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:()=>Promise.reject(Error('denied'))},configurable:true}));
   await page.getByRole('button',{name:'Copy bookmarklet'}).click();await page.getByLabel('Bookmarklet code').waitFor();
   // A second scoring of the same opportunity merges, keeping the workflow status.
-  await page.getByRole('navigation').getByRole('button',{name:/Tailor a resume/}).click();
+  await page.getByRole('navigation').getByRole('button',{name:/^Match/}).click();
   await page.getByLabel('Company',{exact:true}).fill('Example Company');await page.getByLabel('Job title',{exact:true}).fill('Revised Developer');
   await page.getByLabel('Job description',{exact:true}).fill('We seek a Python SQL developer to build reporting dashboards and web applications.');
-  await page.getByRole('button',{name:'Analyze match'}).click();await page.getByRole('button',{name:'Save to application tracker'}).click();await page.getByRole('button',{name:'Saved to tracker'}).waitFor();
+  await page.getByRole('button',{name:'Analyze match'}).click();await page.getByRole('button',{name:'Save to Applications'}).click();await page.getByRole('button',{name:'Saved to Applications'}).waitFor();
   await page.getByRole('navigation').getByRole('button',{name:/Applications/}).click();assert.equal(await page.locator('.tracker-row').count(),1);
   // Storage failures are surfaced without changing the persisted record.
   await page.evaluate(()=>{Storage.prototype.setItem=function(){throw new DOMException('full','QuotaExceededError');};});

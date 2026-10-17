@@ -13,19 +13,26 @@ export default function BackupControls() {
       setMessage("Backup exported. Keep it private: it contains your resume and contact details.");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Export failed"); }
   }
-  return <details className="bookmarklet-card"><summary>Backups and storage</summary>
-    <p>Data stays in this browser. Export a private backup to move devices or recover your records. Import merges applications and replaces the profile; an automatic pre-import snapshot is retained.</p>
-    {warning && <p role="alert">{warning}</p>}
-    <button className="secondary-btn" onClick={() => download()}>Export backup</button>
-    <button className="secondary-btn" onClick={() => download(true)}>Export pre-import backup</button>
-    <label className="field-label">Import backup<input type="file" accept="application/json,.json" onChange={async e => {
-      const file = e.target.files?.[0]; e.target.value = "";
-      if (!file) return;
-      if (file.size > 10_000_000) { setMessage("Backup is too large"); return; }
-      if (!window.confirm("Merge applications and replace the profile from this backup?")) return;
-      try { await importBackup(await file.text()); setMessage("Backup imported."); }
-      catch (error) { setMessage(error instanceof Error ? error.message : "Import failed"); }
-    }} /></label>
-    {message && <p role="status">{message}</p>}
-  </details>;
+  return (
+    <>
+      {warning && <p className="notice notice-warning" role="alert">{warning}</p>}
+      <details className="footer-disclosure">
+        <summary>Backups and data</summary>
+        <p className="muted">Your data stays in this browser. Export a private backup to move to another device or recover your records. Importing merges applications and replaces the profile; a snapshot from before the import is kept.</p>
+        <div className="button-row">
+          <button type="button" className="btn btn-secondary" onClick={() => download()}>Export backup</button>
+          <button type="button" className="btn btn-secondary" onClick={() => download(true)}>Export pre-import backup</button>
+          <label className="btn btn-secondary file-button">Import backup<input className="file-input" type="file" accept="application/json,.json" aria-label="Import backup" onChange={async e => {
+            const file = e.target.files?.[0]; e.target.value = "";
+            if (!file) return;
+            if (file.size > 10_000_000) { setMessage("Backup is too large"); return; }
+            if (!window.confirm("Merge applications and replace the profile from this backup?")) return;
+            try { await importBackup(await file.text()); setMessage("Backup imported."); }
+            catch (error) { setMessage(error instanceof Error ? error.message : "Import failed"); }
+          }} /></label>
+        </div>
+        {message && <p className="muted" role="status">{message}</p>}
+      </details>
+    </>
+  );
 }

@@ -15,6 +15,7 @@ import {
   useProfile,
 } from "@/lib/storage";
 import AutofillBookmarklet from "./AutofillBookmarklet";
+import Icon from "./Icon";
 import { safeWebUrl } from "@/lib/urls";
 
 const STATUS_LABELS: Record<ApplicationStatus, string> = {
@@ -66,111 +67,89 @@ export default function ApplicationTracker() {
   }
 
   return (
-    <div className="flex flex-col gap-6 w-full">
-      <AutofillBookmarklet profile={profile} />
-      {error && <div className="error-banner" role="alert">{error}</div>}
+    <div className="stack">
+      {error && <div className="notice notice-warning" role="alert">{error}</div>}
 
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold text-lg">
-          Applications ({applications.length})
-        </h3>
-        <button
-          className="secondary-btn"
-          onClick={() => setShowAddForm((s) => !s)}
-        >
-          {showAddForm ? "Cancel" : "+ Add manually"}
-        </button>
-      </div>
-
-      {showAddForm && (
-        <form onSubmit={handleAdd} className="tailor-form">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="field-label">Company<input
-              className="text-input"
-              placeholder="Company"
-              value={draft.company}
-              onChange={(e) => setDraft({ ...draft, company: e.target.value })}
-              required
-            /></label>
-            <label className="field-label">Job title<input
-              className="text-input"
-              placeholder="Job title"
-              value={draft.title}
-              onChange={(e) => setDraft({ ...draft, title: e.target.value })}
-              required
-            /></label>
-          </div>
-          <label className="field-label">Job posting URL (optional)<input
-            className="text-input"
-            type="url"
-            placeholder="Job posting URL (optional)"
-            value={draft.url}
-            onChange={(e) => setDraft({ ...draft, url: e.target.value })}
-          /></label>
-          <button type="submit" className="primary-btn">
-            Add to tracker
+      <section className="card">
+        <div className="card-head">
+          <h2>Applications{applications.length > 0 && <span className="count">{applications.length}</span>}</h2>
+          <button type="button" className="btn btn-secondary" onClick={() => setShowAddForm((s) => !s)} aria-expanded={showAddForm}>
+            {showAddForm ? "Cancel" : <><Icon name="plus" />Add application</>}
           </button>
-        </form>
-      )}
-
-      {applications.length === 0 ? (
-        <div className="empty-state"><span className="empty-symbol">↗</span><h2>Your next opportunity belongs here.</h2><p>Save a matched role from Tailor a resume, or add an opportunity manually to start tracking your progress.</p></div>
-      ) : (
-        <div className="tracker-list">
-          {applications.map((app) => (
-            <div key={app.id} className="tracker-row">
-              <div className="tracker-main">
-                <div className="tracker-title">
-                  {app.job.title}{" "}
-                  <span className="text-gray-400">@ {app.job.company}</span>
-                </div>
-                <div className="tracker-meta">
-                  {app.tailorResult && (
-                    <span className="tracker-score">
-                      {app.tailorResult.score}% match
-                    </span>
-                  )}
-                  {safeWebUrl(app.job.url) && (
-                    <a
-                      href={safeWebUrl(app.job.url)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="tracker-link"
-                    >
-                      Open posting ↗
-                    </a>
-                  )}
-                </div>
-              </div>
-
-              <div className="tracker-actions">
-                <select
-                  className="status-select"
-                  aria-label={`Application status for ${app.job.title}`}
-                  value={app.status}
-                  onChange={(e) =>
-                    updateStatus(app.id, e.target.value as ApplicationStatus)
-                  }
-                >
-                  {APPLICATION_STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {STATUS_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  className="icon-btn"
-                  onClick={() => handleDelete(app.id)}
-                  aria-label="Delete application"
-                  title="Delete"
-                >
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))}
         </div>
-      )}
+
+        {showAddForm && (
+          <form onSubmit={handleAdd} className="form add-form">
+            <div className="field-grid">
+              <label className="field"><span className="field-label">Company</span><input
+                className="input"
+                value={draft.company}
+                onChange={(e) => setDraft({ ...draft, company: e.target.value })}
+                required
+              /></label>
+              <label className="field"><span className="field-label">Job title</span><input
+                className="input"
+                value={draft.title}
+                onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                required
+              /></label>
+            </div>
+            <label className="field"><span className="field-label">Job posting URL <span className="optional">(optional)</span></span><input
+              className="input"
+              type="url"
+              placeholder="https://"
+              value={draft.url}
+              onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+            /></label>
+            <div className="form-actions"><button type="submit" className="btn btn-primary">Add</button></div>
+          </form>
+        )}
+
+        {applications.length === 0 ? (
+          <div className="empty">
+            <h3>No applications yet</h3>
+            <p className="muted">Save a job from Match, or add one yourself.</p>
+          </div>
+        ) : (
+          <ul className="tracker-list">
+            {applications.map((app) => {
+              const url = safeWebUrl(app.job.url);
+              return (
+                <li key={app.id} className="tracker-row">
+                  <div className="tracker-main">
+                    <strong>{app.job.title}</strong>
+                    <span className="muted">{app.job.company}</span>
+                  </div>
+                  <div className="tracker-meta">
+                    {app.tailorResult && (
+                      <span className={`pill ${app.tailorResult.band === "Weak match" ? "pill-warning" : "pill-accent"}`}>{app.tailorResult.score}% match</span>
+                    )}
+                    {url && <a href={url} target="_blank" rel="noopener noreferrer" className="btn-link">Posting<Icon name="external" /></a>}
+                  </div>
+                  <div className="tracker-actions">
+                    <select
+                      className="input select"
+                      data-status={app.status}
+                      aria-label={`Application status for ${app.job.title}`}
+                      value={app.status}
+                      onChange={(e) => updateStatus(app.id, e.target.value as ApplicationStatus)}
+                    >
+                      {APPLICATION_STATUSES.map((s) => (
+                        <option key={s} value={s}>{STATUS_LABELS[s]}</option>
+                      ))}
+                    </select>
+                    <button type="button" className="icon-btn" onClick={() => handleDelete(app.id)} aria-label={`Delete ${app.job.title}`} title="Delete">
+                      <Icon name="trash" />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
+      <AutofillBookmarklet profile={profile} />
     </div>
   );
 }
