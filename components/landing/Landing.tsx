@@ -7,11 +7,12 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import "lenis/dist/lenis.css";
+import Logo from "../Logo";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-// Scene 2: skills from a sample listing. `from` is where each one drifts in from
-// on desktop; the resting layout is a plain wrapped row (also the static layout).
+// Skills from a sample listing. `from` is where each one drifts in from on
+// desktop; the resting layout is a plain wrapped row (also the static layout).
 const KEYWORDS = [
   { label: "Python", have: true, from: [-430, -190] },
   { label: "Kubernetes", have: false, from: [-300, 200] },
@@ -24,16 +25,25 @@ const KEYWORDS = [
   { label: "TypeScript", have: true, from: [60, 290] },
   { label: "Spark", have: false, from: [-40, -310] },
 ] as const;
+const PROFILE_SKILLS = ["AWS", "Docker", "Python", "React", "SQL", "TypeScript"];
 
 const STEPS = [
   { title: "Upload once.", body: "Drop in a PDF resume. ACA reads it in seconds." },
-  { title: "See what you bring.", body: "Your contact details and skills, pulled out and ready. Correct anything it misses." },
-  { title: "Know where you stand.", body: "Paste a job description for a match score, shared skills, what’s missing, and what to emphasize. ACA never invents skills." },
+  { title: "See what you bring.", body: "The skills a job asks for that are already on your resume, pulled out and ready." },
+  { title: "Know where you stand.", body: "Paste a job description for a match score, what’s missing, and what to emphasize. ACA never invents skills." },
   { title: "Keep track.", body: "Save each role and follow it from first look to offer." },
 ];
 
 const RING = 2 * Math.PI * 52;
 const SCORE = 61;
+
+// Layout offset of `el` inside `root`. offsetLeft/Top ignore transforms, so this
+// is the element's resting position even while it is mid-animation.
+function offsetIn(el: HTMLElement, root: HTMLElement) {
+  let x = 0, y = 0, node: HTMLElement | null = el;
+  while (node && node !== root) { x += node.offsetLeft; y += node.offsetTop; node = node.offsetParent as HTMLElement | null; }
+  return { x, y };
+}
 
 export default function Landing() {
   const root = useRef<HTMLDivElement>(null);
@@ -44,6 +54,7 @@ export default function Landing() {
     mm.add("(min-width: 800px) and (prefers-reduced-motion: no-preference)", () => {
       const el = root.current!;
       el.classList.add("is-cinematic");
+      const q = <T extends Element = HTMLElement>(sel: string) => gsap.utils.toArray<T>(sel, el);
 
       // Smooth scroll, driven by GSAP's ticker so ScrollTrigger stays in sync.
       const lenis = new Lenis({ anchors: true });
@@ -52,64 +63,116 @@ export default function Landing() {
       gsap.ticker.add(raf);
       gsap.ticker.lagSmoothing(0);
 
-      // Hero: content eases up and out as the next scene arrives.
+      // Hero eases back as the story arrives; the story's headline rises in on
+      // approach, so there is never an empty frame between them.
       gsap.to(".lp-hero-content", {
-        yPercent: -18, opacity: 0, ease: "none",
+        yPercent: -14, opacity: 0, scale: 0.97, ease: "none",
         scrollTrigger: { trigger: ".lp-hero", start: "top top", end: "bottom top", scrub: true },
       });
-
-      // Scene 2 (pinned): the listing's skills drift in, then sort themselves.
-      const chips = gsap.utils.toArray<HTMLElement>(".keyword", el);
-      const sort = gsap.timeline({
-        defaults: { ease: "power2.out" },
-        scrollTrigger: { trigger: ".problem", start: "top top", end: "+=180%", pin: true, scrub: 1 },
+      gsap.from(".story-line", {
+        yPercent: 110, stagger: 0.12, ease: "power3.out",
+        scrollTrigger: { trigger: ".story", start: "top 85%", end: "top 15%", scrub: 1 },
       });
-      sort.from(".problem-line", { yPercent: 110, opacity: 0, stagger: 0.15, duration: 0.6 })
-        .from(chips, {
-          x: (i) => KEYWORDS[i].from[0], y: (i) => KEYWORDS[i].from[1],
-          opacity: 0, scale: 0.85, stagger: 0.04, duration: 1,
-        }, "-=0.2")
-        .from(".keyword-tint", { opacity: 0, stagger: 0.05, duration: 0.5 })
-        .from(".problem-caption", { opacity: 0, y: 24, duration: 0.5 }, "-=0.2")
-        .to({}, { duration: 0.4 });
 
-      // Scene 3 (pinned): the product, one state at a time.
-      const panels = gsap.utils.toArray<HTMLElement>(".demo-panel", el);
-      const captions = gsap.utils.toArray<HTMLElement>(".step-caption", el);
-      gsap.set([...panels.slice(1), ...captions.slice(1)], { opacity: 0 });
-      gsap.set(panels.slice(1), { y: 16 });
+      const stage = el.querySelector<HTMLElement>(".story-stage")!;
+      const chips = q(".keyword");
+      const have = chips.filter(c => c.dataset.have === "true");
+      const missing = chips.filter(c => c.dataset.have !== "true");
+      const targets = have.map(c => el.querySelector<HTMLElement>(`.demo-profile .chip[data-skill="${c.dataset.skill}"]`)!);
+      const panels = q(".demo-panel");
+      const captions = q(".step-caption");
+      const capLines = captions.map(c => c.querySelectorAll(".line > span"));
       const score = { value: 0 };
       const scoreText = el.querySelector<HTMLElement>(".demo-score-number");
-      const swap = (from: number, to: number, at: number) => {
-        reveal.to(panels[from], { opacity: 0, y: -12, duration: 0.4 }, at)
-          .to(panels[to], { opacity: 1, y: 0, duration: 0.5 }, at + 0.15)
-          .to(captions[from], { opacity: 0, duration: 0.3 }, at)
-          .to(captions[to], { opacity: 1, duration: 0.4 }, at + 0.2);
-      };
-      const reveal = gsap.timeline({
+
+      gsap.set(".story-product", { autoAlpha: 0 });
+      gsap.set(panels.slice(1), { autoAlpha: 0 });
+      gsap.set(targets, { opacity: 0 });
+      gsap.set(".demo-result", { opacity: 0 });
+      gsap.set(".demo-cursor", { opacity: 0, x: 170, y: 120 });
+      gsap.set(have, { transformOrigin: "0 0" });
+      captions.forEach((_, i) => gsap.set(capLines[i], { yPercent: 105 }));
+      gsap.set(".step-caption .step-index", { opacity: 0 });
+
+      const captionIn = (i: number, at: number) => tl
+        .to(capLines[i], { yPercent: 0, stagger: 0.06, duration: 0.5, ease: "power3.out" }, at)
+        .to(captions[i].querySelector(".step-index"), { opacity: 1, duration: 0.3 }, at);
+      const captionOut = (i: number, at: number) => tl
+        .to(capLines[i], { yPercent: -105, stagger: 0.04, duration: 0.35, ease: "power2.in" }, at)
+        .to(captions[i].querySelector(".step-index"), { opacity: 0, duration: 0.2 }, at);
+      const swap = (from: number, to: number, at: number) => tl
+        .to(panels[from], { autoAlpha: 0, y: -10, duration: 0.35 }, at)
+        .fromTo(panels[to], { autoAlpha: 0, y: 14 }, { autoAlpha: 1, y: 0, duration: 0.45 }, at + 0.15);
+
+      const tl = gsap.timeline({
         defaults: { ease: "power2.out" },
-        scrollTrigger: { trigger: ".product", start: "top top", end: "+=260%", pin: true, scrub: 1 },
+        scrollTrigger: { trigger: ".story", start: "top top", end: "+=560%", pin: true, scrub: 1, invalidateOnRefresh: true },
       });
-      reveal.fromTo(".demo-progress span", { scaleX: 0 }, { scaleX: 1, duration: 0.8, ease: "none" }, 0);
-      swap(0, 1, 1);
-      reveal.from(".demo-profile .chip", { opacity: 0, y: 10, stagger: 0.06, duration: 0.3 }, 1.5);
-      swap(1, 2, 2.4);
-      reveal.fromTo(".demo-ring-value", { strokeDashoffset: RING }, { strokeDashoffset: RING * (1 - SCORE / 100), duration: 1, ease: "power1.out" }, 2.7)
+
+      // Act 1: a listing's skills drift in and sort into have / missing.
+      tl.from(chips, {
+        x: (i) => KEYWORDS[i].from[0], y: (i) => KEYWORDS[i].from[1],
+        opacity: 0, scale: 0.85, stagger: 0.04, duration: 1,
+      }, 0)
+        .from(".keyword-tint", { opacity: 0, stagger: 0.05, duration: 0.5 }, 1.1)
+        .from(".problem-caption", { opacity: 0, y: 24, duration: 0.4 }, 1.5);
+
+      // Act 2: the headline and missing skills step aside; the app window rises
+      // in from below, tilted, and settles flat.
+      tl.to([".story-problem .scene-title", ".problem-caption"], { opacity: 0, y: -40, duration: 0.4, ease: "power2.in" }, 2.4)
+        .to(missing, { opacity: 0, scale: 0.9, duration: 0.5, stagger: 0.03 }, 2.4)
+        // the matched skills lift clear of the captions and wait above the window
+        .to(have, { y: (i) => -170 - (i % 2) * 14, scale: 0.9, duration: 0.7, stagger: 0.03, ease: "power2.inOut" }, 2.4)
+        .set(".story-product", { autoAlpha: 1 }, 2.5)
+        .fromTo(".device-wrap", { yPercent: 70, rotateX: 24, scale: 0.86 }, { yPercent: 0, rotateX: 0, scale: 1, duration: 1.2, ease: "power3.out" }, 2.5)
+        .fromTo(".device-glow", { opacity: 0, scale: 0.8 }, { opacity: 1, scale: 1, duration: 1.2 }, 2.5)
+        .fromTo(".device-sheen", { xPercent: -120 }, { xPercent: 120, duration: 1.3, ease: "none" }, 2.9);
+      captionIn(0, 3.0);
+      tl.fromTo(".demo-progress span", { scaleX: 0 }, { scaleX: 1, duration: 0.7, ease: "none" }, 3.0);
+
+      // Act 3: the matched skills fly out of the listing and land in the
+      // window's "Skills found" list, becoming the real chips.
+      swap(0, 1, 3.7);
+      captionOut(0, 3.7); captionIn(1, 3.95);
+      tl.to(have, {
+        x: (i) => offsetIn(targets[i], stage).x - offsetIn(have[i], stage).x,
+        y: (i) => offsetIn(targets[i], stage).y - offsetIn(have[i], stage).y,
+        scale: (i) => targets[i].offsetWidth / have[i].offsetWidth,
+        duration: 1, stagger: 0.06, ease: "power3.inOut",
+      }, 3.9);
+      have.forEach((chip, i) => {
+        const land = 3.9 + i * 0.06 + 0.92;
+        tl.to(chip, { opacity: 0, duration: 0.12 }, land).to(targets[i], { opacity: 1, duration: 0.12 }, land);
+      });
+
+      // Act 4: a cursor runs the match; the score fills.
+      swap(1, 2, 5.6);
+      captionOut(1, 5.6); captionIn(2, 5.85);
+      tl.to(".demo-cursor", { opacity: 1, duration: 0.2 }, 5.9)
+        .to(".demo-cursor", { x: 0, y: 0, duration: 0.7, ease: "power2.inOut" }, 5.9)
+        .to(".demo-analyze", { scale: 0.95, duration: 0.08, yoyo: true, repeat: 1 }, 6.62)
+        .to(".demo-cursor", { scale: 0.85, duration: 0.08, yoyo: true, repeat: 1 }, 6.62)
+        .to(".demo-result", { opacity: 1, duration: 0.3 }, 6.8)
+        .fromTo(".demo-ring-value", { strokeDashoffset: RING }, { strokeDashoffset: RING * (1 - SCORE / 100), duration: 1, ease: "power1.out" }, 6.85)
         .fromTo(score, { value: 0 }, {
           value: SCORE, duration: 1, ease: "power1.out",
           onUpdate: () => { if (scoreText) scoreText.textContent = String(Math.round(score.value)); },
-        }, 2.7)
-        .from(".demo-match .chip", { opacity: 0, y: 10, stagger: 0.05, duration: 0.3 }, 3.1);
-      swap(2, 3, 4.2);
-      reveal.from(".demo-row", { opacity: 0, y: 14, duration: 0.4 }, 4.5)
-        .to({}, { duration: 0.6 });
+        }, 6.85)
+        .from(".demo-result .chip", { opacity: 0, y: 8, stagger: 0.05, duration: 0.3 }, 7.1)
+        .to(".demo-cursor", { opacity: 0, duration: 0.3 }, 7.3);
 
-      // Calm sections: a single fade-up when they enter.
-      const reveals = gsap.utils.toArray<HTMLElement>(".reveal", el);
-      gsap.set(reveals, { opacity: 0, y: 28 });
-      ScrollTrigger.batch(reveals, {
-        start: "top 85%", once: true,
-        onEnter: (batch) => gsap.to(batch, { opacity: 1, y: 0, duration: 0.8, ease: "power3.out", stagger: 0.08 }),
+      // Act 5: saved to the tracker.
+      swap(2, 3, 8.2);
+      captionOut(2, 8.2); captionIn(3, 8.45);
+      tl.from(".demo-row", { opacity: 0, y: 14, duration: 0.4 }, 8.5)
+        .to({}, { duration: 0.7 });
+
+      // Closing statements: each line rises in once as it enters.
+      q(".statement .line > span").forEach(line => {
+        gsap.from(line, { yPercent: 105, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: line, start: "top 88%", once: true } });
+      });
+      q(".statement-note").forEach(note => {
+        gsap.from(note, { opacity: 0, y: 16, duration: 0.8, ease: "power3.out", scrollTrigger: { trigger: note, start: "top 90%", once: true } });
       });
 
       return () => {
@@ -123,7 +186,7 @@ export default function Landing() {
   return (
     <div className="landing" ref={root}>
       <header className="landing-nav">
-        <Link href="/" className="landing-brand" aria-label="ACA home">aca</Link>
+        <Link href="/" className="landing-brand" aria-label="ACA home"><Logo size={24} accent="#22d3ee" gap="#fb923c" track="#ffffff" />aca</Link>
         <Link href="/app" className="landing-btn landing-btn-small">Open ACA</Link>
       </header>
 
@@ -143,85 +206,104 @@ export default function Landing() {
           </div>
         </section>
 
-        <section className="problem" aria-labelledby="problem-title">
-          <div className="scene">
-            <h2 id="problem-title" className="scene-title">
-              <span className="line"><span className="problem-line">Every job asks for</span></span>
-              <span className="line"><span className="problem-line">something different.</span></span>
-            </h2>
-            <ul className="keywords" aria-label="Skills from a sample job listing">
-              {KEYWORDS.map(k => (
-                <li key={k.label} className={`keyword ${k.have ? "is-have" : "is-missing"}`}>
-                  <span className="keyword-tint" aria-hidden="true" />
-                  <span className="keyword-label">{k.label}</span>
-                  <span className="sr-only">{k.have ? " (on your resume)" : " (missing)"}</span>
-                </li>
-              ))}
-            </ul>
-            <div className="problem-caption">
-              <p>ACA sorts every listing into what’s already on your resume and what’s missing, so you know where you stand before you apply.</p>
-              <p className="legend" aria-hidden="true"><span className="dot dot-have" />On your resume<span className="dot dot-missing" />Missing</p>
-            </div>
-          </div>
-        </section>
-
-        <section id="how" className="product" aria-labelledby="product-title">
-          <div className="scene product-scene">
-            <div className="product-copy">
-              <h2 id="product-title" className="eyebrow">How ACA works</h2>
-              <ol className="step-captions">
-                {STEPS.map((s, i) => (
-                  <li key={s.title} className="step-caption">
-                    <span className="step-index">{String(i + 1).padStart(2, "0")}</span>
-                    <h3>{s.title}</h3>
-                    <p>{s.body}</p>
+        <section id="how" className="story" aria-labelledby="story-title">
+          <div className="story-stage">
+            <div className="story-problem">
+              <h2 id="story-title" className="scene-title">
+                <span className="line"><span className="story-line">Every job asks for</span></span>
+                <span className="line"><span className="story-line">something different.</span></span>
+              </h2>
+              <ul className="keywords" aria-label="Skills from a sample job listing">
+                {KEYWORDS.map(k => (
+                  <li key={k.label} className={`keyword ${k.have ? "is-have" : "is-missing"}`} data-have={k.have} data-skill={k.label}>
+                    <span className="keyword-tint" aria-hidden="true" />
+                    <span className="keyword-label">{k.label}</span>
+                    <span className="sr-only">{k.have ? " (on your resume)" : " (missing)"}</span>
                   </li>
                 ))}
-              </ol>
+              </ul>
+              <div className="problem-caption">
+                <p>ACA sorts every listing into what’s already on your resume and what’s missing, so you know where you stand before you apply.</p>
+                <p className="legend" aria-hidden="true"><span className="dot dot-have" />On your resume<span className="dot dot-missing" />Missing</p>
+              </div>
             </div>
-            <div className="device" aria-hidden="true">
-              <div className="device-bar"><span /><span /><span /><em>aca / example resume</em></div>
-              <div className="device-screen">
-                <div className="demo-panel demo-upload">
-                  <span className="demo-icon">↑</span>
-                  <strong>Reading maya-chen-resume.pdf</strong>
-                  <div className="demo-progress"><span /></div>
-                </div>
-                <div className="demo-panel demo-profile">
-                  <div className="demo-person"><span className="avatar">MC</span><div><strong>Maya Chen</strong><small>maya@example.test · 202-555-0142</small></div></div>
-                  <p className="demo-label">Skills found</p>
-                  <div className="chips">{["AWS", "Docker", "Python", "React", "SQL", "TypeScript"].map(s => <span key={s} className="chip">{s}</span>)}</div>
-                </div>
-                <div className="demo-panel demo-match is-final">
-                  <div className="demo-score">
-                    <div className="score-ring">
-                      <svg viewBox="0 0 120 120"><circle className="score-track" cx="60" cy="60" r="52" /><circle className="score-value demo-ring-value" cx="60" cy="60" r="52" strokeDasharray={RING} strokeDashoffset={RING * (1 - SCORE / 100)} /></svg>
-                      <span className="score-number demo-score-number">{SCORE}</span>
+
+            <div className="story-product">
+              <div className="product-copy">
+                <p className="eyebrow">How ACA works</p>
+                <ol className="step-captions">
+                  {STEPS.map((s, i) => (
+                    <li key={s.title} className="step-caption">
+                      <span className="step-index">{String(i + 1).padStart(2, "0")}</span>
+                      <h3 className="line"><span>{s.title}</span></h3>
+                      <p className="line"><span>{s.body}</span></p>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+              <div className="device-wrap" aria-hidden="true">
+                <div className="device-glow" />
+                <div className="device">
+                  <div className="device-bar"><span /><span /><span /><em>aca / example resume</em></div>
+                  <div className="device-screen">
+                    <div className="demo-panel demo-upload">
+                      <span className="demo-icon">↑</span>
+                      <strong>Reading maya-chen-resume.pdf</strong>
+                      <div className="demo-progress"><span /></div>
                     </div>
-                    <div><strong>Moderate match</strong><small>4 of 5 listed skills are on the resume.</small></div>
+                    <div className="demo-panel demo-profile">
+                      <div className="demo-person"><span className="avatar">MC</span><div><strong>Maya Chen</strong><small>maya@example.test · 202-555-0142</small></div></div>
+                      <p className="demo-label">Skills found</p>
+                      <div className="chips">{PROFILE_SKILLS.map(s => <span key={s} className="chip" data-skill={s}>{s}</span>)}</div>
+                    </div>
+                    <div className="demo-panel demo-match is-final">
+                      <div className="demo-job">
+                        <div><strong>Junior Data Engineer</strong><small>Example Company · job description pasted</small></div>
+                        <span className="demo-analyze">Analyze match
+                          <svg className="demo-cursor" viewBox="0 0 24 24" width="22" height="22"><path d="M5 3l14 7.5-6.2 1.6L9.6 18z" fill="#1d1d1f" stroke="#fff" strokeWidth="1.5" strokeLinejoin="round" /></svg>
+                        </span>
+                      </div>
+                      <div className="demo-result">
+                        <div className="demo-score">
+                          <div className="score-ring">
+                            <svg viewBox="0 0 120 120"><circle className="score-track" cx="60" cy="60" r="52" /><circle className="score-value demo-ring-value" cx="60" cy="60" r="52" strokeDasharray={RING} strokeDashoffset={RING * (1 - SCORE / 100)} /></svg>
+                            <span className="score-number demo-score-number">{SCORE}</span>
+                          </div>
+                          <div><strong>Moderate match</strong><small>4 of 5 listed skills are on the resume.</small></div>
+                        </div>
+                        <div className="chips">
+                          {["AWS", "Docker", "Python", "SQL"].map(s => <span key={s} className="chip chip-match">✓ {s}</span>)}
+                          <span className="chip chip-missing">Kubernetes</span>
+                        </div>
+                        <p className="demo-tip">Highlight your Docker experience as related groundwork for Kubernetes. Don’t claim it.</p>
+                      </div>
+                    </div>
+                    <div className="demo-panel demo-tracker">
+                      <p className="demo-label">Applications</p>
+                      <div className="demo-row"><div><strong>Junior Data Engineer</strong><small>Example Company</small></div><span className="pill pill-accent">61% match</span><span className="demo-status">Tailored</span></div>
+                    </div>
                   </div>
-                  <div className="chips">
-                    {["AWS", "Docker", "Python", "SQL"].map(s => <span key={s} className="chip chip-match">✓ {s}</span>)}
-                    <span className="chip chip-missing">Kubernetes</span>
-                  </div>
-                  <p className="demo-tip">Highlight your Docker experience as related groundwork for Kubernetes. Don’t claim it.</p>
-                </div>
-                <div className="demo-panel demo-tracker">
-                  <p className="demo-label">Applications</p>
-                  <div className="demo-row"><div><strong>Junior Data Engineer</strong><small>Example Company</small></div><span className="pill pill-accent">61% match</span><span className="demo-status">Tailored</span></div>
+                  <div className="device-sheen" />
                 </div>
               </div>
             </div>
           </div>
         </section>
 
-        <section className="trust" aria-labelledby="trust-title">
-          <h2 id="trust-title" className="section-title reveal">Built to be honest.</h2>
-          <ul className="trust-grid">
-            <li className="reveal"><h3>Stays in your browser</h3><p>Your profile and applications are saved on your device. Export a backup any time.</p></li>
-            <li className="reveal"><h3>Never invents experience</h3><p>Suggestions only lean on skills that are already on your resume.</p></li>
-            <li className="reveal"><h3>You stay in control</h3><p>Fill-Assist fills your contact details on application forms; you review and submit. AI suggestions are optional and off by default.</p></li>
-          </ul>
+        <section className="statements" aria-labelledby="trust-title">
+          <h2 id="trust-title" className="sr-only">Built to be honest</h2>
+          <div className="statement">
+            <p className="statement-text"><span className="line"><span>It stays in your browser.</span></span></p>
+            <p className="statement-note">Your profile and applications are saved on your device. Export a backup any time.</p>
+          </div>
+          <div className="statement">
+            <p className="statement-text"><span className="line"><span>It never invents experience.</span></span></p>
+            <p className="statement-note">Suggestions only lean on skills that are already on your resume.</p>
+          </div>
+          <div className="statement">
+            <p className="statement-text"><span className="line"><span>You stay in control.</span></span></p>
+            <p className="statement-note">Fill-Assist fills your contact details on application forms; you review and submit. AI suggestions are optional and off by default.</p>
+          </div>
         </section>
 
         <section className="lp-cta" aria-labelledby="lp-cta-title">
@@ -232,7 +314,7 @@ export default function Landing() {
       </main>
 
       <footer className="landing-footer">
-        <span>ACA · Autonomous Career Agent</span>
+        <span className="footer-brand"><Logo size={18} accent="#22d3ee" gap="#fb923c" track="#ffffff" />ACA · Autonomous Career Agent</span>
         <Link href="/app" className="landing-link">Open the app</Link>
       </footer>
     </div>

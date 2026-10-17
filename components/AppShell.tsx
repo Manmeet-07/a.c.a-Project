@@ -7,6 +7,7 @@ import JobTailor from "./JobTailor";
 import ApplicationTracker from "./ApplicationTracker";
 import { useApplications, useProfile } from "@/lib/storage";
 import BackupControls from "./BackupControls";
+import Logo from "./Logo";
 
 type Tab = "profile" | "tailor" | "track";
 const TABS: { id: Tab; label: string }[] = [
@@ -29,7 +30,7 @@ export default function AppShell() {
     <div className="app">
       <header className="global-nav">
         <div className="nav-inner">
-          <Link href="/" className="brand" aria-label="ACA home">aca</Link>
+          <Link href="/" className="brand" aria-label="ACA home"><Logo size={22} />aca</Link>
           <nav className="tabs" aria-label="Main navigation">
             {TABS.map(t => (
               <button key={t.id} type="button" className="tab" aria-current={tab === t.id ? "page" : undefined} onClick={() => setTab(t.id)}>
