@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import ResumeUploader from "./ResumeUploader";
 import JobTailor from "./JobTailor";
 import ApplicationTracker from "./ApplicationTracker";
@@ -28,7 +29,7 @@ export default function AppShell() {
     <div className="app">
       <header className="global-nav">
         <div className="nav-inner">
-          <button type="button" onClick={() => setTab("profile")} className="brand" aria-label="ACA home">aca</button>
+          <Link href="/" className="brand" aria-label="ACA home">aca</Link>
           <nav className="tabs" aria-label="Main navigation">
             {TABS.map(t => (
               <button key={t.id} type="button" className="tab" aria-current={tab === t.id ? "page" : undefined} onClick={() => setTab(t.id)}>

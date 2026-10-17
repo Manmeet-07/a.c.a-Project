@@ -56,7 +56,7 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) for the landing page; the app itself is at [/app](http://localhost:3000/app).
 
 ## Known limitations
 

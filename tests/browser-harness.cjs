@@ -28,7 +28,11 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   if(!executablePath)throw Error('Install Chromium with npx playwright install chromium or set PLAYWRIGHT_EXECUTABLE_PATH');
   browser=await chromium.launch({executablePath,headless:true});
   page=await browser.newPage();page.on('pageerror',error=>errors.push(error.message));
+  // Landing page: readable headline, the CTA leads to the app, no runtime errors.
   await page.goto(origin);
+  await page.getByRole('heading',{level:1,name:/Apply with a resume/}).waitFor();
+  assert.equal(await page.getByRole('link',{name:'Start with your resume'}).getAttribute('href'),'/app');
+  await page.goto(origin+'/app');
   const lines=['Maya Chen','maya@example.test','202-555-0142','123 Maple Street','Boston, MA 02110','Skills: Python, SQL, React, TypeScript','Experience','Built reporting dashboards and web applications.'];
   await page.getByLabel('Upload PDF resume').setInputFiles({name:'synthetic.pdf',mimeType:'application/pdf',buffer:pdf(lines)});
   await page.getByRole('heading',{name:'Maya Chen'}).waitFor();
