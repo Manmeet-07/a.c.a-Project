@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import ResumeUploader from "./ResumeUploader";
 import JobTailor from "./JobTailor";
@@ -8,6 +8,7 @@ import ApplicationTracker from "./ApplicationTracker";
 import { useApplications, useProfile } from "@/lib/storage";
 import BackupControls from "./BackupControls";
 import Logo from "./Logo";
+import { useScrollReveal, useScrolledClass } from "./useScrollReveal";
 import { useAuth, logout } from "./auth/AuthProvider";
 
 type Tab = "profile" | "tailor" | "track";
@@ -30,9 +31,13 @@ export default function AppShell() {
   const profile = useProfile();
   const applications = useApplications();
   const heading = HEADINGS[tab];
+  const page = useRef<HTMLElement>(null);
+  const nav = useRef<HTMLElement>(null);
+  useScrollReveal(page, ".panel .stack > *, .panel > div > .card.empty, .site-footer");
+  useScrolledClass(nav);
   return (
     <div className="app">
-      <header className="global-nav">
+      <header className="global-nav" ref={nav}>
         <div className="nav-inner">
           <Link href="/" className="brand" aria-label="ACA home"><Logo size={22} />aca</Link>
           <nav className="tabs" aria-label="Main navigation">
@@ -46,7 +51,7 @@ export default function AppShell() {
           <div className="account-menu"><span className="nav-note" title={user?.email || ""}>{user?.email}</span><button className="btn btn-secondary" onClick={() => { void logout().catch(() => setAccountError("Could not sign out. Please try again.")); }}>Sign out</button></div>
         </div>
       </header>
-      <main className="page">
+      <main className="page" ref={page}>
         {accountError && <p role="alert" className="notice notice-warning">{accountError}</p>}
         <section className="hero" key={tab}>
           <h1><span className="line"><span>{heading.title} <em className="accent">{heading.accent}</em></span></span></h1>

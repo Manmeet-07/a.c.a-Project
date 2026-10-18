@@ -2,7 +2,7 @@
 // i.e. "a resume that fits, with one thing to work on".
 const RING = 2 * Math.PI * 11;
 
-export default function Logo({ size = 22, accent = "#0891b2", gap = "#ea580c", track = "currentColor" }: {
+export default function Logo({ size = 22, accent = "#22d3ee", gap = "#fb923c", track = "currentColor" }: {
   size?: number; accent?: string; gap?: string; track?: string;
 }) {
   return (
