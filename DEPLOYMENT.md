@@ -34,6 +34,8 @@ Serve over HTTPS. Configure a request-body ceiling of 4.5 MB and a request-body 
 
 Package `workers/pdf.cjs` and `pdf2json` with the server; output tracing includes both. The worker is resolved from the application working directory, so start the server from the deployed project root. Test the packaged artifact on your host before promotion. Some serverless hosts enforce smaller request bodies; show their upload error to the user or deploy this endpoint on a Node server with the documented limits.
 
+The worker also reads PDF Link annotations with `pdf-lib`; output tracing includes it and its runtime dependencies. This detects GitHub/LinkedIn URLs behind clickable labels, including compressed PDF objects. At most 500 annotations per page and 100 unique web links of at most 2,000 characters are examined/returned within the same worker time and memory budgets. Unsafe schemes and credential-bearing URLs are ignored; no extracted URL is fetched. Visible GitHub/LinkedIn links also work without an HTTP scheme. Existing profiles need a new resume upload to refresh missing links, because original PDFs are not stored.
+
 The page uses a per-request nonce CSP and dynamic rendering. Script execution requires the nonce; inline styles remain allowed for existing React style attributes. HSTS, anti-framing, nosniff, referrer, and permissions headers are configured. Do not cache HTML containing per-request nonces.
 
 ## Vercel

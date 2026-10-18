@@ -10,9 +10,40 @@ function finish(message) {
   finally { parser.removeAllListeners(); parser.destroy(); }
 }
 parser.on('pdfParser_dataError', () => finish({ error: 'Could not read this PDF' }));
-parser.on('pdfParser_dataReady', data => {
+async function embeddedLinks(input) {
+  // The text parser discards Link annotations. Read their URI actions inside
+  // this same resource-limited worker, without opening any of the URLs.
+  const { PDFDocument, PDFDict, PDFName, PDFString, PDFHexString } = require('pdf-lib');
+  const document = await PDFDocument.load(input, { updateMetadata: false });
+  const links = new Set();
+  for (const page of document.getPages().slice(0, 20)) {
+    const annotations = page.node.Annots();
+    if (!annotations) continue;
+    for (let index = 0; index < Math.min(annotations.size(), 500); index++) {
+      try {
+        const annotation = annotations.lookup(index, PDFDict);
+        if (annotation.lookup(PDFName.of('Subtype')) !== PDFName.of('Link')) continue;
+        const action = annotation.lookupMaybe(PDFName.of('A'), PDFDict);
+        if (action?.lookup(PDFName.of('S')) !== PDFName.of('URI')) continue;
+        const value = action.lookup(PDFName.of('URI'));
+        if (!(value instanceof PDFString || value instanceof PDFHexString)) continue;
+        const target = value.decodeText().trim();
+        if (target.length > 2000) continue;
+        const url = new URL(/^(?:www\.|github\.com\/|linkedin\.com\/)/i.test(target) ? `https://${target}` : target);
+        if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.href.length > 2000) continue;
+        links.add(url.href);
+        if (links.size >= 100) return [...links];
+      } catch { /* One malformed annotation must not discard other contacts. */ }
+    }
+  }
+  return [...links];
+}
+parser.on('pdfParser_dataReady', async data => {
   try {
     if (!Array.isArray(data.Pages) || data.Pages.length > 20) return finish({ error: 'Resumes must contain at most 20 pages' });
+    let links = [];
+    try { links = await embeddedLinks(workerData.pdf); }
+    catch { /* Preserve text extraction for PDFs with unsupported annotations. */ }
     const lines = [];
     let remaining = 100000;
     for (const page of data.Pages) {
@@ -38,10 +69,10 @@ parser.on('pdfParser_dataReady', data => {
         }
         line = line.slice(0, remaining).replace(/\s+/g, ' ').trim();
         if (line) { lines.push(line); remaining -= line.length + 1; }
-        if (remaining <= 0 || lines.length >= 2000) return finish({ lines });
+        if (remaining <= 0 || lines.length >= 2000) return finish({ lines, links });
       }
     }
-    finish({ lines });
+    finish({ lines, links });
   } catch { finish({ error: 'Could not extract PDF text' }); }
 });
 try {

@@ -3,7 +3,7 @@ function normalizeWebUrl(value: string): URL | undefined {
   if (value.length > 2000 || !/^(?:https?:\/\/|www\.|(?:github|linkedin)\.com\/)/i.test(value)) return;
   try {
     const url = new URL(/^https?:\/\//i.test(value) ? value : `https://${value}`);
-    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password) return;
+    if (!['http:', 'https:'].includes(url.protocol) || url.username || url.password || url.href.length > 2000) return;
     return url;
   } catch { return; }
 }

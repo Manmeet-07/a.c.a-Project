@@ -4,13 +4,14 @@ import { RequestError } from "./http";
 import { PDF_TIMEOUT_MS } from "./limits";
 
 let active = 0;
-export async function parsePdf(buffer: Buffer): Promise<string[]> {
+export interface ParsedResumePdf { lines: string[]; links: string[] }
+export async function parseResumePdf(buffer: Buffer): Promise<ParsedResumePdf> {
   if (active >= 2) throw new RequestError(503, "Resume parser is busy. Please try again shortly.");
   active++;
   let worker: Worker | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    return await new Promise<string[]>((resolve, reject) => {
+    return await new Promise<ParsedResumePdf>((resolve, reject) => {
       worker = new Worker(path.join(process.cwd(), "workers/pdf.cjs"), {
         // Wrap the bytes: Turbopack spreads workerData into an object, which
         // would turn a bare Buffer into index keys with no length.
@@ -22,7 +23,7 @@ export async function parsePdf(buffer: Buffer): Promise<string[]> {
       worker.stdout?.resume(); worker.stderr?.resume();
       worker.once("message", message => {
         if (message.error) reject(new RequestError(422, message.error));
-        else resolve(message.lines);
+        else resolve({ lines: message.lines, links: message.links || [] });
       });
       worker.once("error", () => reject(new RequestError(422, "PDF exceeded parser resources or could not be read")));
       worker.once("exit", () => reject(new RequestError(422, "PDF parser stopped before completing")));
@@ -33,4 +34,9 @@ export async function parsePdf(buffer: Buffer): Promise<string[]> {
     if (worker) { worker.removeAllListeners(); await worker.terminate(); }
     active--;
   }
+}
+
+/** Compatibility for callers that only need the extracted resume text. */
+export async function parsePdf(buffer: Buffer): Promise<string[]> {
+  return (await parseResumePdf(buffer)).lines;
 }

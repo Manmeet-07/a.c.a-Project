@@ -64,7 +64,7 @@ test('amplified PDFs stay off the event loop and fail within the worker budget',
 });
 test('header extraction is bounded on a 100KB token and preserves names', async()=>{
   let lines=['x'.repeat(100000)];
-  const {POST}=load('app/api/upload/route.ts', {'@/lib/pdf':{parsePdf:async()=>lines}});
+  const {POST}=load('app/api/upload/route.ts', {'@/lib/pdf':{parseResumePdf:async()=>({lines,links:[]})}});
   async function run(){ const form=new FormData();form.append('resume',new File(['%PDF-test'],'resume.pdf',{type:'application/pdf'}));return POST(new NextRequest(origin+'/api/upload',{method:'POST',headers:{origin},body:form}));}
   const start=performance.now();const result=await (await run()).json();
   assert.ok(performance.now()-start<100,'100KB single-token extraction must not stall');

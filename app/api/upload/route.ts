@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/firebase-server";
 import { NextRequest, NextResponse } from "next/server";
-import { parsePdf } from "@/lib/pdf";
+import { parseResumePdf } from "@/lib/pdf";
 import { MAX_FILE_BYTES, MAX_FILE_LABEL, MAX_UPLOAD_BYTES, MAX_RESUME_CHARS } from "@/lib/limits";
 import { checkRequest, readBounded, RequestError, routeResponse } from "@/lib/http";
 import { CandidateProfile } from "@/types/profile";
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid PDF file" }, { status: 400 });
     }
 
-    const extractedLines = await parsePdf(buffer);
+    const { lines: extractedLines, links: embeddedLinks } = await parseResumePdf(buffer);
     const text = extractedLines.join("\n").slice(0, MAX_RESUME_CHARS);
     const lines = extractedLines.slice(0, 30).filter(line => line.length <= 500);
     const header = lines.join("\n");
@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     const name = extractName(lines);
     const skills = extractSkills(text);
 
-    const { github, linkedin, portfolio, website } = extractProfileLinks(header);
+    const { github, linkedin, portfolio, website } = extractProfileLinks(header, embeddedLinks);
 
     const locationLine = lines.find((line) =>
       /[A-Za-z ]+,\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?/.test(line)

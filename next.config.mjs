@@ -4,7 +4,11 @@ const nextConfig = {
   cleanDistDir: !process.env.NEXT_BUILD_DIR,
   poweredByHeader: false,
   serverExternalPackages: ["pdf2json"],
-  outputFileTracingIncludes: { "/api/upload": ["./workers/pdf.cjs", "./node_modules/pdf2json/**/*"] },
+  outputFileTracingIncludes: { "/api/upload": [
+    "./workers/pdf.cjs", "./node_modules/pdf2json/**/*",
+    "./node_modules/pdf-lib/**/*", "./node_modules/@pdf-lib/**/*",
+    "./node_modules/pako/**/*", "./node_modules/tslib/**/*",
+  ] },
   async headers() {
     return [{ source: "/:path*", headers: [
       { key: "X-Content-Type-Options", value: "nosniff" },

@@ -30,4 +30,14 @@ function pdf(lines, pages = 1) {
   const xref=Buffer.byteLength(data);
   return Buffer.from(data+`xref\n0 ${objs.length+1}\n0000000000 65535 f \n${offsets.map(o=>String(o).padStart(10,'0')+' 00000 n ').join('\n')}\ntrailer\n<< /Size ${objs.length+1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF`);
 }
-module.exports = { load, pdf };
+async function pdfWithLinks(lines, links) {
+  const { PDFDocument, PDFName, PDFString, PDFHexString }=require('pdf-lib');
+  const document=await PDFDocument.load(pdf(lines));
+  const annotations=links.map((link,index)=>document.context.register(document.context.obj({
+    Type:'Annot',Subtype:'Link',Rect:[50,700-index*20,150,720-index*20],
+    A:{S:'URI',URI:index%2 ? PDFHexString.fromText(link) : PDFString.of(link)},
+  })));
+  document.getPages()[0].node.set(PDFName.of('Annots'),document.context.obj(annotations));
+  return Buffer.from(await document.save());
+}
+module.exports = { load, pdf, pdfWithLinks };
