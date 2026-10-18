@@ -9,16 +9,20 @@ import Icon from "./Icon";
 
 const emptyJob: JobInput = { company: "", title: "", url: "", description: "" };
 
+// The ring fills and the number counts up once per result (CSS only; the
+// counter is visual, the real number is in the accessible text).
 function ScoreRing({ score, weak }: { score: number; weak: boolean }) {
   const radius = 52;
   const circumference = 2 * Math.PI * radius;
+  const clamped = Math.max(0, Math.min(100, score));
   return (
-    <div className={`score-ring ${weak ? "is-weak" : ""}`}>
+    <div className={`score-ring ${weak ? "is-weak" : ""}`} style={{ ["--ring" as string]: circumference, ["--score" as string]: clamped }}>
       <svg viewBox="0 0 120 120" aria-hidden="true">
         <circle className="score-track" cx="60" cy="60" r={radius} />
-        <circle className="score-value" cx="60" cy="60" r={radius} strokeDasharray={circumference} strokeDashoffset={circumference * (1 - Math.max(0, Math.min(100, score)) / 100)} />
+        <circle className="score-value" cx="60" cy="60" r={radius} strokeDasharray={circumference} strokeDashoffset={circumference * (1 - clamped / 100)} />
       </svg>
-      <span className="score-number">{score}</span>
+      <span className="score-number score-count" aria-hidden="true" />
+      <span className="sr-only">{score}</span>
     </div>
   );
 }

@@ -27,7 +27,7 @@ export default function AuthGate({ children }: { children: ReactNode }) {
           <p role="alert">
             {warning || "Your private workspace could not be loaded."}
           </p>
-          <button className="primary-btn" onClick={retryWorkspace}>
+          <button className="landing-btn auth-submit" onClick={retryWorkspace}>
             Try again
           </button>
           <button

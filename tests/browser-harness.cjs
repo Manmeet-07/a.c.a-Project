@@ -60,7 +60,7 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   assert.equal(await page.getByRole('link',{name:'Start with your resume'}).getAttribute('href'),'/login');
   await page.goto(origin+'/app');
   await page.waitForURL('**/login');
-  await page.getByRole('heading',{name:'Back to your orbit.'}).waitFor();
+  await page.getByRole('heading',{name:'Welcome back.'}).waitFor();
   const artifacts=path.resolve('tests/artifacts');fs.mkdirSync(artifacts,{recursive:true});
   await page.screenshot({path:path.join(artifacts,'login-desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});
@@ -72,7 +72,7 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
     assert.equal(response.status,401);
   }
   await page.getByRole('link',{name:'Create an account'}).click();
-  await page.getByRole('heading',{name:'Your next chapter starts here.'}).waitFor();
+  await page.getByRole('heading',{name:'Create your account.'}).waitFor();
   if(!emulate) {
     assert.deepEqual(errors,[]);
     console.log('PASS: production landing → login → register, protected workspace and APIs, headers and hydration.');

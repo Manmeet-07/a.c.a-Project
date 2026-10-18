@@ -16,10 +16,11 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "tailor", label: "Match" },
   { id: "track", label: "Applications" },
 ];
-const HEADINGS: Record<Tab, { title: string; description: string }> = {
-  profile: { title: "Your resume, ready to work.", description: "Upload a PDF resume. ACA picks out your contact details and skills so you can compare jobs and fill in applications faster." },
-  tailor: { title: "See how you match.", description: "Paste a job description to compare it with your resume: what lines up, what’s missing, and what to emphasize." },
-  track: { title: "Every application, in one place.", description: "Follow each role from first look to offer." },
+// Each heading ends on one accent word, set in the serif like the landing page.
+const HEADINGS: Record<Tab, { title: string; accent: string; description: string }> = {
+  profile: { title: "Your resume, ready to", accent: "work.", description: "Upload a PDF resume. ACA picks out your contact details and skills so you can compare jobs and fill in applications faster." },
+  tailor: { title: "See how you", accent: "match.", description: "Paste a job description to compare it with your resume: what lines up, what’s missing, and what to emphasize." },
+  track: { title: "Every application,", accent: "tracked.", description: "Follow each role from first look to offer." },
 };
 
 export default function AppShell() {
@@ -47,11 +48,11 @@ export default function AppShell() {
       </header>
       <main className="page">
         {accountError && <p role="alert" className="notice notice-warning">{accountError}</p>}
-        <section className="hero">
-          <h1>{heading.title}</h1>
+        <section className="hero" key={tab}>
+          <h1><span className="line"><span>{heading.title} <em className="accent">{heading.accent}</em></span></span></h1>
           <p>{heading.description}</p>
         </section>
-        <section aria-label={TABS.find(t => t.id === tab)?.label}>
+        <section className="panel" aria-label={TABS.find(t => t.id === tab)?.label}>
           {tab === "profile" && <ResumeUploader onNavigate={setTab} />}
           <div hidden={tab !== "tailor"}><JobTailor key={profile?.updatedAt || "empty"} onNavigate={setTab} /></div>
           {tab === "track" && <ApplicationTracker />}

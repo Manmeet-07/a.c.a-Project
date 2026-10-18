@@ -13,55 +13,55 @@ import {
 import { getFirebase } from "@/lib/firebase-client";
 import { logout, useAuth } from "./AuthProvider";
 import Icon from "../Icon";
+import Logo from "../Logo";
 
 export function AuthFrame({ children }: { children: ReactNode }) {
   return (
-    <main className="auth-stage">
-      <div className="auth-ambient" aria-hidden="true">
-        <span />
-        <span />
-        <span />
-      </div>
-      <Link href="/" aria-label="ACA home" className="brand auth-brand">
-        <span className="brand-mark">
-          <Icon name="spark" />
-        </span>
-        <span>
-          aca<span className="brand-dot">.</span>
-        </span>
-      </Link>
-      <div className="auth-layout">
-        <section className="auth-story">
-          <span className="eyebrow">YOUR AMBITION. YOUR SPACE.</span>
-          <h1>
-            A place for
-            <br />
-            your <em>next chapter.</em>
+    <div className="auth-stage">
+      <div className="lp-glow" aria-hidden="true"><span /><span /></div>
+      <header className="auth-nav">
+        <Link href="/" className="landing-brand" aria-label="ACA home"><Logo size={24} accent="#22d3ee" gap="#fb923c" track="#ffffff" />aca</Link>
+        <Link href="/" className="landing-link auth-home">Back to home</Link>
+      </header>
+      <main className="auth-layout">
+        <section className="auth-story" aria-labelledby="auth-title">
+          <p className="kicker auth-rise">Your workspace</p>
+          <h1 id="auth-title" className="auth-title">
+            <span className="line"><span>Your job search,</span></span>
+            <span className="line"><span>all in one <em className="accent">place.</em></span></span>
           </h1>
-          <p>Your experience, opportunities, and progress—connected to you.</p>
-          <div className="auth-orbit-art" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-            <Icon name="spark" />
-          </div>
-          <div className="auth-assurances">
-            <span>
-              <Icon name="shield" />
-              Private to your account
-            </span>
-            <span>
-              <Icon name="grid" />
-              Available across devices
-            </span>
-          </div>
+          <p className="auth-lede auth-rise">Your resume, your matches and every role you’re tracking, saved to your account and ready on any device.</p>
+          <AuthPreview />
         </section>
         <section className="auth-card">{children}</section>
-      </div>
+      </main>
       <footer className="auth-footer">
-        Built for your next chapter. <span>Autonomous Career Agent</span>
+        <span className="footer-brand"><Logo size={18} accent="#22d3ee" gap="#fb923c" track="#ffffff" />ACA · Autonomous Career Agent</span>
+        <span>Private to your account. You submit every application yourself.</span>
       </footer>
-    </main>
+    </div>
+  );
+}
+
+// A small, real piece of the product (the match view) instead of decoration.
+// The ring and score animate once with CSS; reduced motion shows the end state.
+const PREVIEW_RING = 2 * Math.PI * 52;
+function AuthPreview() {
+  return (
+    <div className="auth-preview" aria-hidden="true">
+      <div className="auth-preview-ring score-ring">
+        <svg viewBox="0 0 120 120"><circle className="score-track" cx="60" cy="60" r="52" /><circle className="score-value" cx="60" cy="60" r="52" strokeDasharray={PREVIEW_RING} style={{ ["--ring" as string]: PREVIEW_RING }} /></svg>
+        <span className="score-number auth-preview-score" />
+      </div>
+      <div className="auth-preview-body">
+        <strong>Junior Data Engineer</strong>
+        <small>Example Company · 61% match</small>
+        <div className="chips">
+          {["Python", "SQL", "Docker"].map(s => <span key={s} className="chip chip-match"><Icon name="check" />{s}</span>)}
+          <span className="chip chip-missing">Kubernetes</span>
+        </div>
+      </div>
+    </div>
   );
 }
 function friendlyError(error: unknown) {
@@ -151,20 +151,20 @@ export function AuthScreen({
   }
   if (loading)
     return (
-      <AuthFrame>
+      <>
         <div className="auth-loading" role="status">
           <span className="auth-spinner" />
           Starting your secure session…
         </div>
-      </AuthFrame>
+      </>
     );
   if (user && !user.emailVerified)
     return (
-      <AuthFrame>
+      <>
         <span className="auth-card-icon">
           <Icon name="shield" />
         </span>
-        <span className="eyebrow">ONE LAST STEP</span>
+        <p className="kicker">One last step</p>
         <h2>Check your inbox.</h2>
         <p>
           Verify <strong>{user.email}</strong> to open your private workspace.
@@ -174,7 +174,7 @@ export function AuthScreen({
           folder if you don’t see the email.
         </p>
         <button
-          className="primary-btn"
+          className="landing-btn auth-submit"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -237,40 +237,32 @@ export function AuthScreen({
             {message}
           </p>
         )}
-      </AuthFrame>
+      </>
     );
   if (user?.emailVerified)
     return (
-      <AuthFrame>
+      <>
         <div className="auth-loading" role="status">
           Opening your workspace…
         </div>
-      </AuthFrame>
+      </>
     );
   return (
-    <AuthFrame>
-      <div className="auth-card-topline">
-        <span className="eyebrow">
-          {reset
-            ? "FIND YOUR WAY BACK"
-            : mode === "register"
-              ? "MAKE ROOM FOR POSSIBILITY"
-              : "WELCOME BACK"}
-        </span>
-        <Icon name="spark" />
-      </div>
+    <>
+      <div className="auth-card-content" key={reset ? "reset" : mode}>
+      <p className="kicker">{reset ? "Password reset" : mode === "register" ? "New account" : "Sign in"}</p>
       <h2>
         {reset
-          ? "Let’s reset."
+          ? "Reset your password."
           : mode === "register"
-            ? "Your next chapter starts here."
-            : "Back to your orbit."}
+            ? "Create your account."
+            : "Welcome back."}
       </h2>
       <p>
         {reset
-          ? "We’ll help you get back into your account."
+          ? "Enter your email and we’ll send you a link to choose a new password."
           : mode === "register"
-            ? "Create an account to keep your career journey together."
+            ? "Free to use. Your resume and applications stay private to you."
             : "Sign in to pick up where you left off."}
       </p>
       {!configured && (
@@ -391,7 +383,7 @@ export function AuthScreen({
           </p>
         )}
         <button
-          className="primary-btn auth-submit"
+          className="landing-btn auth-submit"
           disabled={busy || !configured}
           type="submit"
         >
@@ -405,6 +397,7 @@ export function AuthScreen({
           <Icon name="arrow" />
         </button>
       </form>
+      </div>
       <div className="auth-switch">
         {reset ? (
           <button
@@ -433,6 +426,6 @@ export function AuthScreen({
           data is private to your account.
         </span>
       </div>
-    </AuthFrame>
+    </>
   );
 }
