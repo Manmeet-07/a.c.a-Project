@@ -1,5 +1,11 @@
 # Deployment and audit remediation
 
+## Vercel deployment
+
+Keep `vercel.json` in the repository root. It explicitly selects the Next.js framework so Git deployments package server routes and proxy middleware. With the project preset set to Other, a successful `next build` can publish an empty static deployment and return Vercel `404 NOT_FOUND` for every route. The checked-in framework setting takes precedence over that preset.
+
+Use root directory `.`, production branch `main`, and leave the Output Directory override unset. After a deployment, verify `/`, `/app`, and `/api/health` on the production domain; a Ready status alone does not verify routing. The function duration settings allow PDF parsing and tailoring to finish within their application budgets. Deployment uploads exclude local environment files, generated builds, logs, and test artifacts.
+
 Use Node 22, `npm ci`, and `npm run build`. Next and its ESLint configuration are pinned together. Fonts use the operating system stack, so builds do not fetch Google Fonts.
 
 ## Required before enabling paid AI
