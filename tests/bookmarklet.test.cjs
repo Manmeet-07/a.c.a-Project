@@ -19,3 +19,17 @@ test('contact matching handles accessible labels, camelCase names and required m
   run(fields,{'email-label':{textContent:'Email address'},required:{textContent:'*'}});
   assert.deepEqual(fields.map(item=>item.value),['Maya','Chen',profile.email,profile.phone,profile.postalCode,profile.state]);
 });
+test('address textareas and matching state dropdown options fill and emit input/change events',()=>{
+  const events=[];
+  const fields=[field('Street address',{}, {tagName:'TEXTAREA',type:'textarea'}),field('State',{}, {tagName:'SELECT',type:'select-one',options:[{value:'',textContent:'Choose'},{value:'state-ma',textContent:'Massachusetts'}]})];
+  fields.forEach(item=>item.dispatchEvent=event=>events.push(event.type));
+  // The fake Event records the same event names native controls must receive.
+  vm.runInNewContext(decodeURIComponent(buildAutofillBookmarklet(profile).slice(11)),{document:{querySelectorAll:()=>fields},window:{alert(){}},Event:class{constructor(type){this.type=type;}}});
+  assert.deepEqual(fields.map(item=>item.value),[profile.address,'state-ma']);
+  assert.deepEqual(events,['input','change','input','change']);
+});
+test('existing answers, disabled/hidden controls, screening fields and unmatched selects stay unchanged',()=>{
+  const fields=[field('First name',{}, {value:'First name',placeholder:'First name'}),field('Email',{}, {disabled:true}),field('Email',{}, {readOnly:true}),field('Email',{}, {matches:()=>true}),field('Email',{}, {getClientRects:()=>[]}),field('Why do you want this job?',{}, {tagName:'TEXTAREA',type:'textarea'}),field('State',{}, {tagName:'SELECT',type:'select-one',options:[{value:'CA',textContent:'California'}]}),field('Email',{}, {type:'hidden'})];
+  run(fields);
+  assert.deepEqual(fields.map(item=>item.value),['First name','','','','','','','']);
+});

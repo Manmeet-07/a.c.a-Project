@@ -58,19 +58,22 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
 
   function shouldReplace(el, label) {
     var current = (el.value || '').trim();
-    if (!current) return true;
-    var placeholder = el.placeholder || '';
-    var aria = el.getAttribute('aria-label') || '';
-    if (current === placeholder.trim() || current === aria.trim() || current === label.trim()) return true;
-    return false;
+    return !current;
   }
   function normalizeUrl(value) {
     return value.replace(/\/+$/, '');
   }
-  var fields = Array.prototype.slice.call(document.querySelectorAll('input'));
+  function regionName(value) {
+    var states = 'AL:Alabama|AK:Alaska|AZ:Arizona|AR:Arkansas|CA:California|CO:Colorado|CT:Connecticut|DE:Delaware|DC:District of Columbia|FL:Florida|GA:Georgia|HI:Hawaii|ID:Idaho|IL:Illinois|IN:Indiana|IA:Iowa|KS:Kansas|KY:Kentucky|LA:Louisiana|ME:Maine|MD:Maryland|MA:Massachusetts|MI:Michigan|MN:Minnesota|MS:Mississippi|MO:Missouri|MT:Montana|NE:Nebraska|NV:Nevada|NH:New Hampshire|NJ:New Jersey|NM:New Mexico|NY:New York|NC:North Carolina|ND:North Dakota|OH:Ohio|OK:Oklahoma|OR:Oregon|PA:Pennsylvania|RI:Rhode Island|SC:South Carolina|SD:South Dakota|TN:Tennessee|TX:Texas|UT:Utah|VT:Vermont|VA:Virginia|WA:Washington|WV:West Virginia|WI:Wisconsin|WY:Wyoming|PR:Puerto Rico|GU:Guam|VI:Virgin Islands|AS:American Samoa|MP:Northern Mariana Islands';
+    var entry = states.split('|').find(function(entry) { return entry.split(':')[0] === value.trim().toUpperCase(); });
+    return (entry ? entry.split(':')[1] : value).trim().toLowerCase();
+  }
+  var fields = Array.prototype.slice.call(document.querySelectorAll('input, textarea, select'));
   var filled = 0;
   fields.forEach(function (el) {
-    if (!/^(text|email|tel|url|search)?$/i.test(el.type) || el.tagName === 'TEXTAREA' || el.disabled || el.readOnly) return;
+    var tag = el.tagName || 'INPUT';
+    if (tag === 'INPUT' && !/^(text|email|tel|url|search)?$/i.test(el.type)) return;
+    if (el.disabled || el.readOnly || (el.matches && el.matches(':disabled')) || (el.getClientRects && !el.getClientRects().length)) return;
     var label = fieldLabel(el);
     if (label.length > 40 || /\?|company|employer|refer|emergency|school|university|username|security|password|start|\b(day|date)\b/.test(label)) return;
     if (!shouldReplace(el, label)) return;
@@ -98,8 +101,19 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     if (el.type === 'email' && field !== 'email') return;
     if (el.type === 'tel' && field !== 'phone') return;
     if (el.type === 'url' && !/^(website|portfolio|linkedin|github)$/.test(field || '')) return;
+    if (tag === 'TEXTAREA' && field !== 'address') return;
+    if (tag === 'SELECT' && !/^(state|city)$/.test(field || '')) return;
     var value = field && data[field];
     if (value && /^(website|portfolio|linkedin|github)$/.test(field)) value = normalizeUrl(value);
+    if (value && tag === 'SELECT') {
+      if (el.multiple) return;
+      var option = Array.prototype.find.call(el.options, function(option) {
+        var normalize = field === 'state' ? regionName : function(text) { return text.trim().toLowerCase(); };
+        return option.value && !option.disabled && !(option.parentElement && option.parentElement.disabled) && (normalize(option.value) === normalize(value) || normalize(option.textContent) === normalize(value));
+      });
+      if (!option) return;
+      value = option.value;
+    }
     if (value) { setNativeValue(el, value); filled++; }
   });
   window.alert('ACA Fill-Assist filled ' + filled + ' field(s). Review everything before submitting -- nothing was submitted automatically.');
