@@ -51,7 +51,8 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   const executablePath=candidates.find(p=>fs.existsSync(p));
   if(!executablePath)throw Error('Install Chromium with npx playwright install chromium or set PLAYWRIGHT_EXECUTABLE_PATH');
   browser=await chromium.launch({executablePath,headless:true});
-  page=await browser.newPage();page.setDefaultTimeout(60000);page.on('pageerror',error=>errors.push(error.message));
+  const context=await browser.newContext();
+  page=await context.newPage();page.setDefaultTimeout(60000);page.on('pageerror',error=>errors.push(error.message));
   console.log('Browser server ready; checking public routes and authentication boundary.');
   // Landing page: readable headline, the CTA leads to the app, no runtime errors.
   await page.goto(origin);
@@ -93,7 +94,7 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   testAdminApp=adminApp;testDatabase=db;
   const userId=credential.user.uid;
   const lines=['Maya Chen','maya@example.test','202-555-0142','123 Maple Street','Boston, MA 02110','Skills: Python, SQL, React, TypeScript','Experience','Built reporting dashboards and web applications.'];
-  await page.getByLabel('Upload PDF resume').setInputFiles({name:'synthetic.pdf',mimeType:'application/pdf',buffer:await pdfWithLinks(lines,['https://github.com/maya-dev'])});
+  await page.getByLabel('Upload PDF resume').setInputFiles({name:'synthetic.pdf',mimeType:'application/pdf',buffer:await pdfWithLinks(lines,['https://github.com/maya-dev','https://linkedin.com/in/maya','https://maya.dev','https://maya.dev/portfolio'])});
   await page.getByRole('heading',{name:'Maya Chen'}).waitFor();
   await page.locator('summary').filter({hasText:'Contact details'}).click();
   await page.getByText('https://github.com/maya-dev',{exact:true}).waitFor();
@@ -119,6 +120,7 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   // Clipboard rejection must provide a selectable fallback rather than an unhandled promise.
   await page.evaluate(()=>Object.defineProperty(navigator,'clipboard',{value:{writeText:()=>Promise.reject(Error('denied'))},configurable:true}));
   await page.getByRole('button',{name:'Copy bookmarklet'}).click();await page.getByLabel('Bookmarklet code').waitFor();
+  await require('./application-fill-browser.cjs')(page.context(),await page.getByLabel('Bookmarklet code').inputValue());
   // A second scoring of the same opportunity merges, keeping the workflow status.
   await page.getByRole('navigation').getByRole('button',{name:/^Match/}).click();
   await page.getByLabel('Company',{exact:true}).fill('Example Company');await page.getByLabel('Job title',{exact:true}).fill('Revised Developer');

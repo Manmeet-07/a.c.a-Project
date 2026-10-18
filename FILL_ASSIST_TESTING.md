@@ -1,0 +1,44 @@
+# Resume-to-application verification
+
+Run `npm run test:e2e:auth` with Java 21+ installed. The test uses local Firebase
+Auth and Firestore emulators and synthetic data. It does not open or submit a
+real job application.
+
+The browser flow registers and verifies an account, uploads an actual PDF with
+embedded contact links, saves the profile in Firestore, and opens Applications.
+It reads the actual Fill-Assist code produced by the UI and runs it on a separate
+origin serving a React-controlled application form. React's state and every
+filled DOM value must agree, so a visual-only change cannot pass.
+
+| Contact field | Expected synthetic value |
+| --- | --- |
+| First name | Maya |
+| Last name | Chen |
+| Full name | Maya Chen |
+| Email | maya@example.test |
+| Phone | 202-555-0142 |
+| Street address (textarea) | 123 Maple Street |
+| City | Boston |
+| State (select) | Massachusetts, stored by the form as `state-ma` |
+| Postal code | 02110 |
+| LinkedIn | https://linkedin.com/in/maya |
+| GitHub | https://github.com/maya-dev |
+| Portfolio | https://maya.dev/portfolio |
+| Website | https://maya.dev |
+
+The form covers associated labels, wrapping labels containing select options,
+ARIA label references, camelCase names, required markers, and HTML autocomplete.
+Specific social-link labels take priority over generic `autocomplete="url"`.
+State options match abbreviations or full US state names without assuming the
+site's internal option value. Other region names match exactly.
+
+Fourteen protected controls must remain unchanged: pre-filled email and name,
+read-only/disabled controls, a control inside a disabled fieldset, a CSS-hidden
+contact, a screening textarea, company, country, password, a multiple select,
+hidden input, file upload, and work-authorization checkbox. No form submission
+or submission request may occur. On a second run, cleared contacts refill and
+user-edited values remain intact.
+
+The test creates `tests/artifacts/application-filled.png` for inspection.
+Custom widgets, inaccessible/cross-origin iframes, work history, and screening
+answers remain manual. Missing source information is never fabricated.

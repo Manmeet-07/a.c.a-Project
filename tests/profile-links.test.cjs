@@ -20,6 +20,11 @@ test('profile links reject lookalike hosts, credentials and unsafe hyperlink sch
   assert.equal(extractProfileLinks('https://maya.github.io').website,'https://maya.github.io');
   assert.equal(extractProfileLinks('github.com/maya/project github.com/maya').github,'https://github.com/maya');
 });
+test('separate website and portfolio links remain distinct',()=>{
+  const links=extractProfileLinks('', ['https://maya.dev/portfolio','https://maya.dev']);
+  assert.equal(links.portfolio,'https://maya.dev/portfolio');
+  assert.equal(links.website,'https://maya.dev');
+});
 test('PDF upload preserves a visible scheme-free GitHub profile in its response',async()=>{
   const {POST}=load('app/api/upload/route.ts',{'@/lib/firebase-server':{requireUser:async()=>'verified-user'}});
   const data=new FormData();data.set('resume',new File([pdf(['Maya Chen','maya@example.test','github.com/maya-dev','Skills: Python'])],'resume.pdf',{type:'application/pdf'}));

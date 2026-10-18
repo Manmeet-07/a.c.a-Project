@@ -48,11 +48,18 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     el.dispatchEvent(new Event('input', { bubbles: true }));
     el.dispatchEvent(new Event('change', { bubbles: true }));
   }
+  function labelText(node) {
+    if (!node) return '';
+    if (!node.cloneNode) return node.innerText || node.textContent || '';
+    var copy = node.cloneNode(true);
+    Array.prototype.forEach.call(copy.querySelectorAll('input, textarea, select, button'), function(control) { control.remove(); });
+    return copy.textContent || '';
+  }
   function fieldLabel(el) {
-    var labels = el.labels ? Array.prototype.map.call(el.labels, function(lbl) { return lbl.innerText; }).filter(Boolean) : [];
+    var labels = el.labels ? Array.prototype.map.call(el.labels, labelText).filter(Boolean) : [];
     var parent = el.closest('label');
     var labelledBy = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(function(id) { var node = document.getElementById && document.getElementById(id); return node && node.textContent || ''; }).join(' ').trim();
-    var text = el.getAttribute('aria-label') || labelledBy || labels[0] || (parent && parent.innerText) || el.placeholder || el.name || el.id || '';
+    var text = el.getAttribute('aria-label') || labelledBy || labels[0] || labelText(parent) || el.placeholder || el.name || el.id || '';
     return text.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/\bgit hub\b/g, 'github').replace(/\blinked in\b/g, 'linkedin').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\s*(?:\*|\(required\)|:)\s*$/, '').trim();
   }
 

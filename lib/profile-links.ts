@@ -27,7 +27,7 @@ export function extractProfileLinks(header: string, embeddedLinks: string[] = []
   const linkedin = urls.find(url => host(url) === 'linkedin.com' && url.pathname !== '/');
   const portfolioHosts = ['behance.net', 'dribbble.com', 'codepen.io', 'codesandbox.io'];
   const portfolio = urls.find(url => !['github.com', 'linkedin.com'].includes(host(url)) && (portfolioHosts.includes(host(url)) || /portfolio|personal-site|website/i.test(url.pathname)));
-  const website = portfolio || urls.find(url => !['github.com', 'linkedin.com', ...portfolioHosts].includes(host(url)));
+  const website = urls.find(url => url !== portfolio && !['github.com', 'linkedin.com', ...portfolioHosts].includes(host(url))) || portfolio;
   const formatted = (url: URL | undefined) => url?.href.replace(/\/+$/, '');
   return { github: formatted(github), linkedin: formatted(linkedin), portfolio: formatted(portfolio), website: formatted(website) };
 }
