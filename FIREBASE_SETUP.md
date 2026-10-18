@@ -16,6 +16,13 @@ verified-email claim. A client-provided UID is never an authorization source.
 Server verification uses public signing certificates and the project ID; do not
 add service-account private keys to this application or to GitHub.
 
+Firebase Admin is pinned to 13.10.0 for Vercel compatibility. Its 14.5.0
+dependency chain requires loading ESM through CommonJS, which fails in Vercel's
+Node 24 runtime with `ERR_REQUIRE_ESM`. A regression test disables that Node
+feature and imports the real verifier. Keep this test when upgrading the SDK.
+The dependency overrides pin patched UUID 11.1.1 and gRPC 1.14.6 versions;
+the emulator flow exercises the resulting auth and database dependency chain.
+
 ## Configuration
 
 Copy `.env.example` to `.env.local` and fill the Firebase web app configuration.

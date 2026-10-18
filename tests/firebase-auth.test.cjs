@@ -2,6 +2,11 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { load } = require('./helpers.cjs');
+const { spawnSync } = require('node:child_process');
+test('Firebase verifier loads when the server disables experimental require(ESM)', () => {
+  const result = spawnSync(process.execPath, ['--no-experimental-require-module', '-e', "require('firebase-admin/app'); require('firebase-admin/auth');"], { cwd: require('node:path').resolve(__dirname, '..'), encoding: 'utf8', timeout: 15000 });
+  assert.equal(result.status, 0, result.stderr || 'Firebase verifier failed to load');
+});
 function guard({verified=true, reject=false, configured=true}={}) {
   return load('lib/firebase-server.ts', {
     process:{env:configured?{FIREBASE_PROJECT_ID:'demo-aca'}:{}},
