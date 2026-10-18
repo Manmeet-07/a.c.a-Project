@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.135.0",
+    "@fontsource/instrument-serif": "5.2.8",
     "@gsap/react": "2.1.2",
     "firebase": "^13.0.0",
     "firebase-admin": "13.10.0",

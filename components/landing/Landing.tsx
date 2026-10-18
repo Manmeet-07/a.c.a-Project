@@ -181,6 +181,20 @@ export default function Landing() {
         el.classList.remove("is-cinematic");
       };
     });
+
+    // Phones: no pinning, just a light reveal as each block scrolls into view.
+    mm.add("(max-width: 799px) and (prefers-reduced-motion: no-preference)", () => {
+      const reveal = (targets: gsap.TweenTarget, trigger: string, vars: gsap.TweenVars = {}) =>
+        gsap.from(targets, { opacity: 0, y: 24, duration: 0.8, ease: "power3.out", stagger: 0.06, ...vars, scrollTrigger: { trigger, start: "top 85%", once: true } });
+      gsap.utils.toArray<HTMLElement>(".line > .story-line, .statement .line > span", root.current).forEach(line =>
+        gsap.from(line, { yPercent: 105, duration: 0.9, ease: "power3.out", scrollTrigger: { trigger: line, start: "top 90%", once: true } }));
+      reveal(".keyword", ".keywords", { y: 12, scale: 0.94, stagger: 0.04 });
+      reveal(".problem-caption", ".problem-caption");
+      reveal(".step-caption", ".step-captions", { stagger: 0.1 });
+      reveal(".device", ".device-wrap", { y: 48, scale: 0.96, duration: 1 });
+      reveal(".statement-note", ".statements");
+      reveal([".lp-cta-title", ".lp-cta-sub", ".lp-cta .landing-btn"], ".lp-cta", { stagger: 0.1 });
+    });
   }, { scope: root });
 
   return (
@@ -196,7 +210,7 @@ export default function Landing() {
           <div className="lp-hero-content">
             <h1 id="lp-title" className="lp-title">
               <span className="line"><span>Apply with a resume</span></span>
-              <span className="line"><span>that <em>fits</em>.</span></span>
+              <span className="line"><span>that <em className="accent">fits.</em></span></span>
             </h1>
             <p className="lp-sub">ACA reads your resume, compares it with any job description, and shows you what to highlight. It never invents skills, and you submit every application yourself.</p>
             <div className="lp-actions">
@@ -230,7 +244,7 @@ export default function Landing() {
 
             <div className="story-product">
               <div className="product-copy">
-                <p className="eyebrow">How ACA works</p>
+                <p className="kicker">How ACA works</p>
                 <ol className="step-captions">
                   {STEPS.map((s, i) => (
                     <li key={s.title} className="step-caption">
@@ -307,7 +321,7 @@ export default function Landing() {
         </section>
 
         <section className="lp-cta" aria-labelledby="lp-cta-title">
-          <h2 id="lp-cta-title" className="lp-cta-title">Your next application<br />starts here.</h2>
+          <h2 id="lp-cta-title" className="lp-cta-title">Your next application<br />starts <em className="accent">here.</em></h2>
           <p className="lp-cta-sub">Your own workspace. Ready on every device.</p>
           <Link href="/login" className="landing-btn">Open ACA</Link>
         </section>
