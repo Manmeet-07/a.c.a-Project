@@ -51,8 +51,9 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
   function fieldLabel(el) {
     var labels = el.labels ? Array.prototype.map.call(el.labels, function(lbl) { return lbl.innerText; }).filter(Boolean) : [];
     var parent = el.closest('label');
-    var text = el.getAttribute('aria-label') || labels[0] || (parent && parent.innerText) || el.placeholder || el.name || el.id || '';
-    return text.toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\s*\*\s*$/, '').trim();
+    var labelledBy = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(function(id) { var node = document.getElementById && document.getElementById(id); return node && node.textContent || ''; }).join(' ').trim();
+    var text = el.getAttribute('aria-label') || labelledBy || labels[0] || (parent && parent.innerText) || el.placeholder || el.name || el.id || '';
+    return text.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/\bgit hub\b/g, 'github').replace(/\blinked in\b/g, 'linkedin').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\s*(?:\*|\(required\)|:)\s*$/, '').trim();
   }
 
   function shouldReplace(el, label) {
@@ -76,7 +77,11 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     var field = null;
     var autocomplete = (el.getAttribute('autocomplete') || '').trim().split(/\s+/).pop();
     var standard = { 'given-name':'firstName', 'family-name':'lastName', name:'name', email:'email', tel:'phone', 'postal-code':'postalCode', 'address-level1':'state', 'address-level2':'city', 'street-address':'address', 'address-line1':'address', url:'website' };
-    if (standard[autocomplete]) field = standard[autocomplete];
+    // Generic autocomplete="url" must not turn a GitHub/LinkedIn field into
+    // the candidate's personal website.
+    var linkField = /^linkedin(?: (?:url|profile|website|link))?$/.test(label) ? 'linkedin' : /^github(?: (?:url|profile|website|link))?$/.test(label) ? 'github' : /^portfolio(?: (?:url|website|link))?$/.test(label) ? 'portfolio' : null;
+    if (linkField && (!autocomplete || autocomplete === 'url')) field = linkField;
+    else if (standard[autocomplete]) field = standard[autocomplete];
     else if (/^(legal )?first name$/.test(label)) field = 'firstName';
     else if (/^(legal )?(last name|surname|family name)$/.test(label)) field = 'lastName';
     else if (/^(legal |full |your )?name$/.test(label)) field = 'name';
@@ -84,8 +89,8 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     else if (/^(phone|mobile|telephone|tel)( number)?$/.test(label)) field = 'phone';
     else if (/^(street address|address|address line 1)$/.test(label)) field = 'address';
     else if (/^city$/.test(label)) field = 'city';
-    else if (/^(state|province|state province)$/.test(label)) field = 'state';
-    else if (/^(zip|zip code|postal code)$/.test(label)) field = 'postalCode';
+    else if (/^(state|province|state province|state or region)$/.test(label)) field = 'state';
+    else if (/^(zip|zip code|postal code|zip \/ postal code)$/.test(label)) field = 'postalCode';
     else if (/^linkedin( url| profile)?$/.test(label)) field = 'linkedin';
     else if (/^github( url| profile)?$/.test(label)) field = 'github';
     else if (/^portfolio( url)?$/.test(label)) field = 'portfolio';
