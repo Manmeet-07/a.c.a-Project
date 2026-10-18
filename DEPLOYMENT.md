@@ -46,11 +46,11 @@ Import the repository as a Next.js project; the default build command and Node 2
 
 ## Browser data
 
-Storage is versioned; legacy data migrates on write. Invalid records are preserved in quarantine before any replacement. Unknown future versions block writes. Tracker mutations use Web Locks, requiring HTTPS/localhost and a modern browser. Users can export private JSON backups, merge imports, and export a pre-import recovery snapshot. This remains device-local storage; a backend synchronization service is a separate product change. Contact extraction favors US layouts; the profile editor supports manual corrections and international names/phone/address text.
+Workspace data is now private to a verified Firebase account, with live Firestore synchronization and transactional tracker updates. Session-only authentication and memory-only Firestore caching clear the workspace on sign-out. Legacy browser data is imported only after explicit confirmation; the original browser copy is retained. Users can export private JSON backups, merge imports, and export a pre-import recovery snapshot until reload/sign-out. See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for account configuration, database rules, and tests. Contact extraction favors US layouts; the profile editor supports manual corrections and international names/phone/address text.
 
 ## Verification
 
-CI installs from the lockfile, lints, typechecks, runs regression tests, audits production dependencies, builds, and runs the production upload → tailor → tracker browser flow. `npm run test:e2e` starts/stops its own server on a free port. Set `PLAYWRIGHT_EXECUTABLE_PATH` to an installed Chromium browser, or run `npx playwright install chromium`.
+CI installs from the lockfile, lints, typechecks, runs regression tests, audits production dependencies, builds, and checks the production authentication boundary. Java 21+ enables adversarial Firestore rule tests and the full authenticated browser flow against local Auth/Firestore emulators. Each browser test starts/stops its own server on a free port. Set `PLAYWRIGHT_EXECUTABLE_PATH` to an installed Chromium browser, or run `npx playwright install chromium`.
 
 On a Windows sandbox that cannot create Turbopack junctions, use `NEXT_BUILD_DIR=.next-verify` with `next build --webpack`, then keep that environment variable for the browser test. The alternate directory preserves existing build artifacts; normal builds clean `.next`.
 

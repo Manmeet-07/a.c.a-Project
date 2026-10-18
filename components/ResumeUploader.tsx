@@ -5,6 +5,7 @@ import Icon from "./Icon";
 import ResumeProfile from "./ResumeProfile";
 import { CandidateProfile } from "@/types/profile";
 import { setProfile as saveProfile, useProfile } from "@/lib/storage";
+import { authenticatedFetch } from "@/lib/firebase-client";
 import { MAX_FILE_BYTES, MAX_FILE_LABEL } from "@/lib/limits";
 
 export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tailor" | "track") => void }) {
@@ -39,7 +40,7 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
     formData.append("resume", file);
 
     try {
-      const response = await fetch("/api/upload", {
+      const response = await authenticatedFetch("/api/upload", {
         method: "POST",
         body: formData,
       });
@@ -53,10 +54,10 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
       }
 
       const newProfile: CandidateProfile = data.profile;
-      try { saveProfile(newProfile); }
+      try { await saveProfile(newProfile); }
       catch (error) {
         setStatus("error");
-        setError(error instanceof Error ? error.message : "Your browser storage is full or unavailable.");
+        setError(error instanceof Error ? error.message : "Could not save to your account. Please try again.");
         return;
       }
       setStatus("idle");

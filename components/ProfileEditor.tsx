@@ -15,13 +15,13 @@ export default function ProfileEditor({ profile }: { profile: CandidateProfile }
   const [skills, setSkills] = useState(profile.skills.join(", "));
   const [error, setError] = useState("");
   return (
-    <form className="form" onSubmit={event => {
+    <form className="form" onSubmit={async event => {
       event.preventDefault();
       try {
         const vocabulary = new Map(SKILL_DEFINITIONS.flatMap(s => [s.canonical, ...(s.aliases || [])].map(alias => [alias.toLowerCase(), s.canonical] as const)));
         const entered = skills.split(",").map(s => s.trim()).filter(Boolean);
         if (entered.some(s => !vocabulary.has(s.toLowerCase()))) { setError("Use recognized skill names from the list below."); return; }
-        setProfile({ ...draft, skills: [...new Set(entered.map(s => vocabulary.get(s.toLowerCase())!))], updatedAt: new Date().toISOString() });
+        await setProfile({ ...draft, skills: [...new Set(entered.map(s => vocabulary.get(s.toLowerCase())!))], updatedAt: new Date().toISOString() });
       } catch (error) { setError(error instanceof Error ? error.message : "Could not save profile"); }
     }}>
       <p className="muted">Automatic extraction works best with US-style addresses and phone numbers. Correct anything here, including international details. Only list skills you actually have.</p>

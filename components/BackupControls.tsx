@@ -1,10 +1,11 @@
 "use client";
 import { useState } from "react";
-import { exportBackup, exportPreviousBackup, importBackup, useStorageWarning } from "@/lib/storage";
+import { exportBackup, exportPreviousBackup, importBackup, importLegacyBrowserData, hasLegacyBrowserData, useStorageWarning } from "@/lib/storage";
 
 export default function BackupControls() {
   const warning = useStorageWarning();
   const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
   function download(previous = false) {
     try {
       const url = URL.createObjectURL(new Blob([previous ? exportPreviousBackup() : exportBackup()], { type: "application/json" }));
@@ -18,7 +19,14 @@ export default function BackupControls() {
       {warning && <p className="notice notice-warning" role="alert">{warning}</p>}
       <details className="footer-disclosure">
         <summary>Backups and data</summary>
-        <p className="muted">Your data stays in this browser. Export a private backup to move to another device or recover your records. Importing merges applications and replaces the profile; a snapshot from before the import is kept.</p>
+        <p className="muted">Your data syncs to your account. Export a private backup to keep a copy. Importing merges applications and replaces the profile; a recovery snapshot is available until you sign out or reload.</p>
+        {hasLegacyBrowserData() && <button className="btn btn-secondary" disabled={busy} onClick={async () => {
+          if (!window.confirm("Import the previous data saved in this browser into your signed-in account? Only do this on your own device. Your original browser data will be preserved.")) return;
+          setBusy(true);
+          try { await importLegacyBrowserData(); setMessage("Previous browser data imported into your account."); }
+          catch (error) { setMessage(error instanceof Error ? error.message : "Import failed"); }
+          finally { setBusy(false); }
+        }}>Import previous browser data</button>}
         <div className="button-row">
           <button type="button" className="btn btn-secondary" onClick={() => download()}>Export backup</button>
           <button type="button" className="btn btn-secondary" onClick={() => download(true)}>Export pre-import backup</button>

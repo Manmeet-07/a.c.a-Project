@@ -16,7 +16,7 @@ function load(file, mocks = {}) {
       if (name.startsWith('.')) return read(path.join(path.dirname(filename), name + '.ts'));
       return require(name);
     };
-    vm.runInNewContext(source, { module: loaded, exports: loaded.exports, require: localRequire, process, Buffer, File, Blob, FormData, Request, Response, Headers, URL, TextDecoder, TextEncoder, AbortSignal, Uint8Array, setTimeout, clearTimeout, console: {info(){}}, ...mocks }, { filename });
+    vm.runInNewContext(source, { module: loaded, exports: loaded.exports, require: localRequire, process, Buffer, File, Blob, FormData, Request, Response, Headers, URL, TextDecoder, TextEncoder, AbortSignal, Uint8Array, crypto: require('node:crypto').webcrypto, setTimeout, clearTimeout, console: {info(){}}, ...mocks }, { filename });
     return loaded.exports;
   }
   return read(file);

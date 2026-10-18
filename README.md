@@ -14,10 +14,10 @@ evading anti-bot detection on Greenhouse/Lever/Workday/Ashby.
 This build implements the same *user-facing* value entirely inside the
 Next.js app, with two deliberate deviations:
 
-1. **No separate backend/DB/queue infrastructure.** Everything runs as
-   Next.js Route Handlers, and all user data (profile, applications) is
-   persisted to the browser's `localStorage` instead of Postgres. There's
-   nothing to provision -- `npm ci && npm run dev` is enough.
+1. **Next.js APIs with Firebase accounts.** Processing runs in Next.js Route
+   Handlers on Vercel. Firebase Authentication protects access and Firestore
+   stores private profiles and applications across devices. See
+   [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for local and deployed configuration.
 2. **No stealth/anti-bot-evasion automation.** The spec's Phase 3 calls for
    headless browser workers that rotate IPs and spoof fingerprints to
    auto-submit applications unattended. That's built specifically to defeat
@@ -56,7 +56,8 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) for the landing page; the app itself is at [/app](http://localhost:3000/app).
+Copy `.env.example` to `.env.local` and fill the Firebase web configuration first.
+Open [http://localhost:3000](http://localhost:3000) for the landing page. Its links lead to login/registration; verified users open [/app](http://localhost:3000/app).
 
 ## Known limitations
 
@@ -67,6 +68,6 @@ Open [http://localhost:3000](http://localhost:3000) for the landing page; the ap
 - The skill vocabulary in `lib/skills.ts` and the ATS scoring in
   `lib/ats.ts` are heuristics, not a trained model -- treat scores as
   directional, not authoritative.
-- All data lives in `localStorage` in your browser; there's no multi-device
-  sync or backend persistence. Clearing browser data clears your profile
-  and tracker unless you export a backup first. The app supports JSON export/import and preserves unreadable records for recovery.
+- Workspace data requires an online connection and a verified Firebase account.
+  Existing browser data can be imported explicitly from Backups and data.
+  Original PDFs are not stored; extracted resume text is saved in the account.

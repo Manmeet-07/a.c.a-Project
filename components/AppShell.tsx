@@ -8,6 +8,7 @@ import ApplicationTracker from "./ApplicationTracker";
 import { useApplications, useProfile } from "@/lib/storage";
 import BackupControls from "./BackupControls";
 import Logo from "./Logo";
+import { useAuth, logout } from "./auth/AuthProvider";
 
 type Tab = "profile" | "tailor" | "track";
 const TABS: { id: Tab; label: string }[] = [
@@ -23,6 +24,8 @@ const HEADINGS: Record<Tab, { title: string; description: string }> = {
 
 export default function AppShell() {
   const [tab, setTab] = useState<Tab>("profile");
+  const { user } = useAuth();
+  const [accountError, setAccountError] = useState("");
   const profile = useProfile();
   const applications = useApplications();
   const heading = HEADINGS[tab];
@@ -39,10 +42,11 @@ export default function AppShell() {
               </button>
             ))}
           </nav>
-          <span className="nav-note">Saved on this device</span>
+          <div className="account-menu"><span className="nav-note" title={user?.email || ""}>{user?.email}</span><button className="btn btn-secondary" onClick={() => { void logout().catch(() => setAccountError("Could not sign out. Please try again.")); }}>Sign out</button></div>
         </div>
       </header>
       <main className="page">
+        {accountError && <p role="alert" className="notice notice-warning">{accountError}</p>}
         <section className="hero">
           <h1>{heading.title}</h1>
           <p>{heading.description}</p>
@@ -54,7 +58,7 @@ export default function AppShell() {
         </section>
         <footer className="site-footer">
           <BackupControls />
-          <p className="fine-print">Your profile and applications are saved in this browser. Resumes are read on the server to extract text. AI suggestions are optional: when you turn them on, filtered resume excerpts and the job description are sent to Anthropic.</p>
+          <p className="fine-print">Your profile and applications sync to your private account. Resumes are read on the server to extract text. AI suggestions are optional: when you turn them on, filtered resume excerpts and the job description are sent to Anthropic.</p>
           <p className="fine-print">ACA · Autonomous Career Agent</p>
         </footer>
       </main>

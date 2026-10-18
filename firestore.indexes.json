@@ -1,0 +1,15 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "profile",
+      "fieldPath": "resumeText",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "applications",
+      "fieldPath": "job.description",
+      "indexes": []
+    }
+  ]
+}

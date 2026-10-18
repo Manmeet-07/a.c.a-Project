@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/firebase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { buildTailorResult } from "@/lib/ats";
 import { getAIEnhancedSuggestions } from "@/lib/ai";
@@ -19,6 +20,7 @@ interface TailorRequestBody {
 export async function POST(req: NextRequest) {
   return routeResponse("tailor", async () => {
   checkRequest(req, "application/json");
+    await requireUser(req);
   const bytes = await readBounded(req, 700_000);
   let body: TailorRequestBody;
   try {

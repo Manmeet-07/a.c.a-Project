@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { randomUUID } from "node:crypto";
 
 export class RequestError extends Error {
   constructor(public status: number, message: string) { super(message); }
@@ -52,7 +51,7 @@ export function logEvent(event: string, fields: Record<string, string | number |
 
 const activeRequests = new Map<string, number>();
 export async function routeResponse(route: string, run: () => Promise<NextResponse>) {
-  const requestId = randomUUID();
+  const requestId = crypto.randomUUID();
   const start = Date.now();
   let response: NextResponse;
   let admitted = false;

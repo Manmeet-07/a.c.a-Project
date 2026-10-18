@@ -6,7 +6,7 @@ function storage(values=new Map()) {
   let queue=Promise.resolve();
   const navigator={locks:{request:(_key,fn)=>{const result=queue.then(fn);queue=result.catch(()=>{});return result;}}};
   const window={localStorage:{getItem:k=>values.get(k)??null,setItem:(k,v)=>values.set(k,v),removeItem:k=>values.delete(k)},addEventListener(){},removeEventListener(){}};
-  const api=load('lib/storage.ts',{window,navigator,react:{useSyncExternalStore:(_subscribe,snapshot)=>snapshot()}});
+  const api=load('lib/legacy-storage.ts',{window,navigator,react:{useSyncExternalStore:(_subscribe,snapshot)=>snapshot()}});
   return {api,window,values};
 }
 test('storage migrates legacy records, quarantines invalid data, validates results',async()=>{

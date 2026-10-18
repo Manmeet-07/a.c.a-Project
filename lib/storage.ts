@@ -1,292 +1,427 @@
 "use client";
 
 import { useSyncExternalStore } from "react";
-import { CandidateProfile } from "@/types/profile";
-import { APPLICATION_STATUSES, Application } from "@/types/application";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  onSnapshot,
+  runTransaction,
+  setDoc,
+  type Unsubscribe,
+} from "firebase/firestore";
+import type { CandidateProfile } from "@/types/profile";
+import { APPLICATION_STATUSES, type Application } from "@/types/application";
+import { getFirebase } from "./firebase-client";
+import {
+  isApplication,
+  isProfile,
+  parseBackup,
+  sameJob,
+} from "./workspace-data";
 
-/**
- * There is no backend/database in this build (see README) -- everything is
- * persisted to the browser's localStorage instead. This module is the only
- * place that touches `localStorage` so the storage shape can change later
- * without every component needing to know about it.
- *
- * Components read data via the `useProfile`/`useApplications` hooks (built
- * on `useSyncExternalStore`) rather than `useEffect` + `setState`, so that a
- * write from one component (e.g. saving a tailored job from the Tailor tab)
- * is immediately reflected everywhere else (e.g. the Track tab) without
- * manual refresh props, and without the "setState synchronously in an
- * effect" anti-pattern.
- */
-
-const KEYS = {
-  profile: "aca:profile",
-  applications: "aca:applications",
-} as const;
-
-function isBrowser() {
-  return typeof window !== "undefined";
+// All durable workspace data belongs to a Firebase UID. Firestore uses a
+// memory-only cache; signing out drops these snapshots and listeners.
+export class StorageError extends Error {
+  constructor(
+    message = "Could not save to your account. Check your connection and try again.",
+  ) {
+    super(message);
+    this.name = "StorageError";
+  }
 }
-
-type Listener = () => void;
-const listeners = new Set<Listener>();
-
-function subscribe(listener: Listener) {
-  listeners.add(listener);
-  if (isBrowser()) window.addEventListener("storage", listener);
-  return () => {
-    listeners.delete(listener);
-    if (isBrowser()) window.removeEventListener("storage", listener);
-  };
-}
-
+let uid: string | null = null;
+let generation = 0;
+let profile: CandidateProfile | null = null;
+let applications: Application[] = [];
+let status: "signed-out" | "loading" | "ready" | "error" = "signed-out";
+let warning = "";
+let previousBackup = "";
+let subscriptions: Unsubscribe[] = [];
+const listeners = new Set<() => void>();
+const EMPTY: Application[] = [];
 function notify() {
   listeners.forEach((listener) => listener());
 }
-
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
-function isProfile(value: unknown): value is CandidateProfile {
-  return isRecord(value) && ["name", "email", "phone", "resumeText", "updatedAt"].every(k => typeof value[k] === "string") &&
-    Array.isArray(value.skills) && value.skills.every(s => typeof s === "string") &&
-    ["address", "city", "state", "postalCode", "linkedin", "github", "portfolio", "website", "fileName"].every(k => value[k] === undefined || typeof value[k] === "string");
+function plain<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T;
 }
-function isApplication(value: unknown): value is Application {
-  if (!isRecord(value) || !isRecord(value.job)) return false;
-  const result = value.tailorResult;
-  return ["id", "createdAt", "updatedAt"].every(k => typeof value[k] === "string") &&
-    APPLICATION_STATUSES.includes(value.status as Application["status"]) &&
-    ["company", "title", "description"].every(k => typeof (value.job as Record<string, unknown>)[k] === "string") &&
-    (value.job.url === undefined || typeof value.job.url === "string") &&
-    (result === undefined || (isRecord(result) && typeof result.score === "number" && Number.isFinite(result.score) && result.score >= 0 && result.score <= 100 &&
-      ["Strong match", "Moderate match", "Weak match"].includes(String(result.band)) && typeof result.aiEnhanced === "boolean" &&
-      ["matchedSkills", "missingSkills", "suggestions"].every(k => Array.isArray(result[k]) && result[k].every((s: unknown) => typeof s === "string"))));
+function failure(error: unknown): StorageError {
+  const code =
+    error && typeof error === "object" && "code" in error
+      ? String(error.code)
+      : "";
+  if (code.includes("permission-denied"))
+    return new StorageError(
+      "Account access was denied. Verify your email and sign in again; if this continues, contact the ACA administrator.",
+    );
+  if (code.includes("resource-exhausted"))
+    return new StorageError(
+      "The account database is temporarily at its usage limit. Please try again later.",
+    );
+  return error instanceof StorageError ? error : new StorageError();
 }
-function readRaw(key: string): string | null {
-  try { return isBrowser() ? window.localStorage.getItem(key) : null; } catch { return null; }
+function account() {
+  const services = getFirebase();
+  if (
+    !uid ||
+    services.auth.currentUser?.uid !== uid ||
+    !services.auth.currentUser.emailVerified
+  )
+    throw new StorageError("Please sign in with a verified account.");
+  if (status !== "ready")
+    throw new StorageError(
+      "Your account is still loading. Please wait before making changes.",
+    );
+  return { ...services, uid, generation };
 }
-
-export class StorageError extends Error {
-  constructor(message = "Browser storage is unavailable. Export a backup before changing browser settings.") { super(message); this.name = "StorageError"; }
+function assertAccount(expected: { uid: string; generation: number }) {
+  if (
+    uid !== expected.uid ||
+    generation !== expected.generation ||
+    getFirebase().auth.currentUser?.uid !== expected.uid
+  )
+    throw new StorageError("Your account changed. Please try again.");
 }
-function storageFailure(error: unknown): StorageError {
-  return new StorageError(isRecord(error) && error.name === "QuotaExceededError"
-    ? "Your browser storage is full. Export a backup and free space before retrying."
-    : error instanceof StorageError ? error.message : undefined);
-}
-function decode(raw: string): unknown {
-  const value: unknown = JSON.parse(raw);
-  if (isRecord(value) && "version" in value) {
-    if (value.version !== 1) throw new StorageError("This backup uses a newer storage version. Export it and update the app before editing.");
-    return value.data;
-  }
-  return value; // legacy, unversioned data
-}
-function readJSON<T>(key: string, fallback: T): T {
-  try {
-    const raw = readRaw(key);
-    if (!raw) return fallback;
-    const value = decode(raw);
-    if (key === KEYS.profile) return (isProfile(value) ? value : fallback) as T;
-    if (key === KEYS.applications) return (Array.isArray(value) ? value.filter(isApplication) : fallback) as T;
-  } catch { /* Leave the original bytes intact; show recovery warning. */ }
-  return fallback;
-}
-function preserveInvalid(key: string) {
-  const raw = window.localStorage.getItem(key);
-  if (!raw) return;
-  let invalid = false;
-  try {
-    const value = decode(raw);
-    invalid = key === KEYS.profile ? !isProfile(value) : !Array.isArray(value) || value.some(item => !isApplication(item));
-  } catch (error) {
-    if (error instanceof StorageError) throw error;
-    invalid = true;
-  }
-  if (invalid) {
-    const quarantineKey = `${key}:invalid`;
-    const previous = window.localStorage.getItem(quarantineKey);
-    const archive = previous ? JSON.parse(previous) as string[] : [];
-    if (!archive.includes(raw)) archive.push(raw);
-    // If backup fails, abort the original write. Never discard invalid data.
-    window.localStorage.setItem(quarantineKey, JSON.stringify(archive));
-  }
-}
-function writeJSON<T>(key: string, value: T) {
-  if (!isBrowser()) throw new StorageError();
-  try {
-    preserveInvalid(key);
-    window.localStorage.setItem(key, JSON.stringify({ version: 1, data: value }));
+export function connectWorkspace(nextUid: string | null) {
+  if (uid === nextUid && status !== "error") return;
+  subscriptions.forEach((unsubscribe) => unsubscribe());
+  subscriptions = [];
+  generation++;
+  const current = generation;
+  uid = nextUid;
+  profile = null;
+  applications = [];
+  previousBackup = "";
+  warning = "";
+  status = nextUid ? "loading" : "signed-out";
+  notify();
+  if (!nextUid) return;
+  const { db } = getFirebase();
+  let profileLoaded = false;
+  let appsLoaded = false;
+  function ready() {
+    if (current !== generation) return;
+    if (profileLoaded && appsLoaded && status !== "error") status = "ready";
     notify();
-  } catch (error) { throw storageFailure(error); }
+  }
+  function failed(error: unknown) {
+    if (current !== generation) return;
+    status = "error";
+    warning = failure(error).message;
+    notify();
+  }
+  // Real-time listeners are required: edits must follow the user between
+  // devices and tabs without reload. No persistent/offline resume cache.
+  subscriptions.push(
+    onSnapshot(
+      doc(db, "users", nextUid, "profile", "current"),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        if (
+          current !== generation ||
+          snapshot.metadata.hasPendingWrites ||
+          snapshot.metadata.fromCache
+        )
+          return;
+        const value = snapshot.data();
+        profile = isProfile(value) ? value : null;
+        if (snapshot.exists() && !profile)
+          warning =
+            "Some account data could not be read. Export a backup and contact support; it has not been overwritten.";
+        profileLoaded = true;
+        ready();
+      },
+      failed,
+    ),
+  );
+  subscriptions.push(
+    onSnapshot(
+      collection(db, "users", nextUid, "applications"),
+      { includeMetadataChanges: true },
+      (snapshot) => {
+        if (
+          current !== generation ||
+          snapshot.metadata.hasPendingWrites ||
+          snapshot.metadata.fromCache
+        )
+          return;
+        const values = snapshot.docs.map((record) => record.data());
+        applications = values
+          .filter(isApplication)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+        if (applications.length !== values.length)
+          warning =
+            "Some application records could not be read. They remain in your account; contact support before replacing data.";
+        appsLoaded = true;
+        ready();
+      },
+      failed,
+    ),
+  );
 }
-export function getProfile(): CandidateProfile | null { return readJSON(KEYS.profile, null); }
-export function setProfile(profile: CandidateProfile) {
-  if (!isProfile(profile)) throw new StorageError("Invalid profile");
-  writeJSON(KEYS.profile, profile);
+export function retryWorkspace() {
+  if (uid) {
+    const value = uid;
+    status = "error";
+    connectWorkspace(value);
+  }
 }
-export function clearProfile() {
-  try { preserveInvalid(KEYS.profile); window.localStorage.removeItem(KEYS.profile); notify(); }
-  catch (error) { throw storageFailure(error); }
+export function useWorkspaceStatus() {
+  return useSyncExternalStore(
+    subscribe,
+    () => status,
+    () => "signed-out" as const,
+  );
 }
-export function getApplications(): Application[] { return readJSON(KEYS.applications, []); }
-export function saveApplications(applications: Application[]) { writeJSON(KEYS.applications, applications); }
-async function locked<T>(run: () => T): Promise<T> {
-  if (!isBrowser() || !navigator.locks) throw new StorageError("Saving requires a browser with Web Locks on HTTPS or localhost. Export a backup before switching browsers.");
-  try { return await navigator.locks.request("aca:applications", run); }
-  catch (error) { throw storageFailure(error); }
+export function useStorageWarning() {
+  return useSyncExternalStore(
+    subscribe,
+    () => warning,
+    () => "",
+  );
 }
-function sameJob(a: Application, b: Application) {
-  const normalize = (value: string) => value.trim().toLowerCase().replace(/\/+$/, "");
-  if (a.job.url && b.job.url) return normalize(a.job.url) === normalize(b.job.url);
-  return Boolean(a.job.company.trim() && a.job.title.trim() && normalize(a.job.company) === normalize(b.job.company) && normalize(a.job.title) === normalize(b.job.title));
+export function useProfile() {
+  return useSyncExternalStore(
+    subscribe,
+    () => profile,
+    () => null,
+  );
+}
+export function useApplications() {
+  return useSyncExternalStore(
+    subscribe,
+    () => applications,
+    () => EMPTY,
+  );
+}
+export function getProfile() {
+  return profile;
+}
+export function getApplications() {
+  return applications;
+}
+export async function setProfile(value: CandidateProfile) {
+  if (!isProfile(value))
+    throw new StorageError("Profile contains invalid or oversized fields.");
+  const current = account();
+  try {
+    await setDoc(
+      doc(current.db, "users", current.uid, "profile", "current"),
+      plain(value),
+    );
+    assertAccount(current);
+  } catch (error) {
+    throw failure(error);
+  }
+}
+export async function clearProfile() {
+  const current = account();
+  try {
+    await deleteDoc(
+      doc(current.db, "users", current.uid, "profile", "current"),
+    );
+    assertAccount(current);
+  } catch (error) {
+    throw failure(error);
+  }
+}
+export function makeId() {
+  return crypto.randomUUID();
+}
+async function applicationId(application: Application): Promise<string> {
+  const existing = applications.find(
+    (item) => item.id === application.id || sameJob(item, application),
+  );
+  if (existing) return existing.id;
+  const normalize = (value: string) =>
+    value.trim().toLowerCase().replace(/\/+$/, "");
+  const key = application.job.url
+    ? normalize(application.job.url)
+    : application.job.company.trim() && application.job.title.trim()
+      ? `${normalize(application.job.company)}\n${normalize(application.job.title)}`
+      : "";
+  if (!key) return application.id;
+  const hash = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(key),
+  );
+  return `job_${Array.from(new Uint8Array(hash), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 export async function upsertApplication(application: Application) {
-  if (!isApplication(application)) throw new StorageError("Invalid application");
-  return locked(() => {
-    const existing = getApplications();
-    const idx = existing.findIndex(a => a.id === application.id || sameJob(a, application));
-    if (idx === -1) existing.unshift(application);
-    else existing[idx] = { ...existing[idx], ...application, id: existing[idx].id, createdAt: existing[idx].createdAt, status: existing[idx].status };
-    saveApplications(existing);
-    return existing;
-  });
+  if (!isApplication(application))
+    throw new StorageError("Application contains invalid or oversized fields.");
+  const current = account();
+  const id = await applicationId(application);
+  assertAccount(current);
+  try {
+    await runTransaction(current.db, async (transaction) => {
+      assertAccount(current);
+      const reference = doc(
+        current.db,
+        "users",
+        current.uid,
+        "applications",
+        id,
+      );
+      const previous = await transaction.get(reference);
+      assertAccount(current);
+      const old = previous.data();
+      if (previous.exists() && !isApplication(old))
+        throw new StorageError(
+          "This application needs recovery before it can be changed.",
+        );
+      const next = isApplication(old)
+        ? {
+            ...old,
+            ...application,
+            id,
+            createdAt: old.createdAt,
+            status: old.status,
+          }
+        : { ...application, id };
+      transaction.set(reference, plain(next));
+    });
+    assertAccount(current);
+  } catch (error) {
+    throw failure(error);
+  }
 }
-export async function updateApplicationStatus(id: string, status: Application["status"]) {
-  if (!APPLICATION_STATUSES.includes(status)) throw new StorageError("Invalid status");
-  return locked(() => {
-    const existing = getApplications();
-    const record = existing.find(a => a.id === id);
-    if (!record) throw new StorageError("This application was removed in another tab.");
-    record.status = status; record.updatedAt = new Date().toISOString();
-    saveApplications(existing);
-  });
+export async function updateApplicationStatus(
+  id: string,
+  nextStatus: Application["status"],
+) {
+  if (
+    !APPLICATION_STATUSES.includes(nextStatus) ||
+    !/^[a-zA-Z0-9_-]{1,128}$/.test(id)
+  )
+    throw new StorageError("Invalid application status.");
+  const current = account();
+  try {
+    await runTransaction(current.db, async (transaction) => {
+      assertAccount(current);
+      const reference = doc(
+        current.db,
+        "users",
+        current.uid,
+        "applications",
+        id,
+      );
+      const previous = await transaction.get(reference);
+      assertAccount(current);
+      if (!previous.exists() || !isApplication(previous.data()))
+        throw new StorageError(
+          "This application was removed or needs recovery.",
+        );
+      transaction.update(reference, {
+        status: nextStatus,
+        updatedAt: new Date().toISOString(),
+      });
+    });
+    assertAccount(current);
+  } catch (error) {
+    throw failure(error);
+  }
 }
 export async function deleteApplication(id: string) {
-  return locked(() => saveApplications(getApplications().filter(a => a.id !== id)));
-}
-export function exportBackup(): string {
+  if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id))
+    throw new StorageError("Invalid application.");
+  const current = account();
   try {
-    const entries: Record<string, string | null> = {};
-    for (const key of Object.values(KEYS)) {
-      entries[key] = window.localStorage.getItem(key);
-      entries[`${key}:invalid`] = window.localStorage.getItem(`${key}:invalid`);
-    }
-    return JSON.stringify({ version: 1, entries }, null, 2);
-  } catch (error) { throw storageFailure(error); }
+    await deleteDoc(doc(current.db, "users", current.uid, "applications", id));
+    assertAccount(current);
+  } catch (error) {
+    throw failure(error);
+  }
 }
-export function exportPreviousBackup(): string {
-  try {
-    const snapshot = window.localStorage.getItem("aca:pre-import");
-    if (!snapshot) throw new StorageError("No pre-import backup is available yet.");
-    return snapshot;
-  } catch (error) { throw storageFailure(error); }
+export function exportBackup() {
+  account();
+  return JSON.stringify(
+    {
+      version: 1,
+      entries: {
+        "aca:profile": profile
+          ? JSON.stringify({ version: 1, data: profile })
+          : null,
+        "aca:applications": JSON.stringify({ version: 1, data: applications }),
+      },
+    },
+    null,
+    2,
+  );
+}
+export function exportPreviousBackup() {
+  account();
+  if (!previousBackup)
+    throw new StorageError(
+      "No pre-import snapshot is available in this session.",
+    );
+  return previousBackup;
 }
 export async function importBackup(text: string) {
-  if (text.length > 10_000_000) throw new StorageError("Backup is too large");
-  let parsed: unknown;
-  try { parsed = JSON.parse(text); } catch { throw new StorageError("Invalid backup JSON"); }
-  if (!isRecord(parsed) || parsed.version !== 1 || !isRecord(parsed.entries)) throw new StorageError("Invalid backup format");
-  const entries = parsed.entries;
-  const rawProfile = entries[KEYS.profile];
-  const rawApps = entries[KEYS.applications];
-  const profile = typeof rawProfile === "string" ? decode(rawProfile) : null;
-  const apps = typeof rawApps === "string" ? decode(rawApps) : [];
-  if ((profile !== null && !isProfile(profile)) || !Array.isArray(apps) || !apps.every(isApplication)) throw new StorageError("Backup contains invalid records; keep the file for recovery. Nothing was imported.");
-  const archives = Object.values(KEYS).map(key => {
-    const raw = entries[`${key}:invalid`];
-    if (raw == null) return { key: `${key}:invalid`, items: [] as string[] };
-    if (typeof raw !== "string") throw new StorageError("Invalid recovery archive");
-    const items: unknown = JSON.parse(raw);
-    if (!Array.isArray(items) || !items.every(item => typeof item === "string")) throw new StorageError("Invalid recovery archive");
-    return { key: `${key}:invalid`, items: items as string[] };
-  });
-  return locked(() => {
-    // Keep an exact snapshot before either write so partial quota failures are recoverable.
-    window.localStorage.setItem("aca:pre-import", exportBackup());
-    for (const archive of archives) {
-      if (!archive.items.length) continue;
-      const previous = JSON.parse(window.localStorage.getItem(archive.key) || "[]") as string[];
-      window.localStorage.setItem(archive.key, JSON.stringify([...new Set([...previous, ...archive.items])]));
-    }
-    const merged = getApplications();
-    for (const app of apps) if (!merged.some(a => a.id === app.id || sameJob(a, app))) merged.push(app);
-    saveApplications(merged);
-    if (profile) setProfile(profile as CandidateProfile);
-  });
-}
-function storageWarning(): string {
-  if (!isBrowser()) return "";
+  const current = account();
+  let incoming: ReturnType<typeof parseBackup>;
   try {
-    for (const key of Object.values(KEYS)) {
-      if (window.localStorage.getItem(`${key}:invalid`)) return "Some unreadable records were preserved for recovery. Export a backup before clearing browser data.";
-      const raw = window.localStorage.getItem(key);
-      if (!raw) continue;
-      const value = decode(raw);
-      if (key === KEYS.profile ? !isProfile(value) : !Array.isArray(value) || !value.every(isApplication)) return "Some saved records cannot be read. Export a backup; the original data is still preserved.";
-    }
-    return "";
-  } catch { return "Saved data cannot be read. Export a backup before making changes."; }
-}
-export function useStorageWarning() { return useSyncExternalStore(subscribe, storageWarning, () => ""); }
-
-export function makeId(): string {
-  if (isBrowser() && "randomUUID" in window.crypto) {
-    return window.crypto.randomUUID();
+    incoming = parseBackup(text);
+  } catch (error) {
+    throw new StorageError(
+      error instanceof Error ? error.message : "Invalid backup",
+    );
   }
-  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-// --- React bindings -------------------------------------------------------
-
-let profileSnapshotRaw: string | null = null;
-let profileSnapshotValue: CandidateProfile | null = null;
-
-function getProfileSnapshot(): CandidateProfile | null {
-  if (!isBrowser()) return null;
-  const raw = readRaw(KEYS.profile);
-  if (raw !== profileSnapshotRaw) {
-    profileSnapshotRaw = raw;
-    profileSnapshotValue = getProfile();
+  const snapshot = exportBackup();
+  const records = new Map<string, Application>();
+  for (const app of incoming.applications) {
+    const id = await applicationId(app);
+    records.set(id, { ...app, id });
   }
-  return profileSnapshotValue;
-}
-
-function getProfileServerSnapshot(): CandidateProfile | null {
-  return null;
-}
-
-export function useProfile(): CandidateProfile | null {
-  return useSyncExternalStore(
-    subscribe,
-    getProfileSnapshot,
-    getProfileServerSnapshot
-  );
-}
-
-let applicationsSnapshotRaw: string | null = null;
-let applicationsSnapshotValue: Application[] = [];
-
-function getApplicationsSnapshot(): Application[] {
-  if (!isBrowser()) return applicationsSnapshotValue;
-  const raw = readRaw(KEYS.applications);
-  if (raw !== applicationsSnapshotRaw) {
-    applicationsSnapshotRaw = raw;
-    applicationsSnapshotValue = getApplications();
+  assertAccount(current);
+  try {
+    await runTransaction(current.db, async (transaction) => {
+      assertAccount(current);
+      const references = [...records.keys()].map((id) =>
+        doc(current.db, "users", current.uid, "applications", id),
+      );
+      const existing = await Promise.all(
+        references.map((reference) => transaction.get(reference)),
+      );
+      assertAccount(current);
+      existing.forEach((record, index) => {
+        if (!record.exists())
+          transaction.set(
+            references[index],
+            plain(records.get(references[index].id)!),
+          );
+      });
+      if (incoming.profile)
+        transaction.set(
+          doc(current.db, "users", current.uid, "profile", "current"),
+          plain(incoming.profile),
+        );
+    });
+    assertAccount(current);
+    previousBackup = snapshot;
+  } catch (error) {
+    throw failure(error);
   }
-  return applicationsSnapshotValue;
 }
-
-const EMPTY_APPLICATIONS: Application[] = [];
-function getApplicationsServerSnapshot(): Application[] {
-  return EMPTY_APPLICATIONS;
+export function hasLegacyBrowserData() {
+  try {
+    return Boolean(
+      window.localStorage.getItem("aca:profile") ||
+        window.localStorage.getItem("aca:applications"),
+    );
+  } catch {
+    return false;
+  }
 }
-
-export function useApplications(): Application[] {
-  return useSyncExternalStore(
-    subscribe,
-    getApplicationsSnapshot,
-    getApplicationsServerSnapshot
-  );
+export async function importLegacyBrowserData() {
+  account();
+  const { exportBackup: exportLegacy } = await import("./legacy-storage");
+  await importBackup(exportLegacy()); // Explicit user action only; originals remain intact.
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { JobInput, TailorResult } from "@/types/job";
 import { Application } from "@/types/application";
 import { makeId, upsertApplication, useProfile } from "@/lib/storage";
+import { authenticatedFetch } from "@/lib/firebase-client";
 import Icon from "./Icon";
 
 const emptyJob: JobInput = { company: "", title: "", url: "", description: "" };
@@ -44,8 +45,8 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
     setSaved(false);
 
     try {
-      if (useAI) await fetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-      const res = await fetch("/api/tailor", {
+      if (useAI) await authenticatedFetch("/api/session", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      const res = await authenticatedFetch("/api/tailor", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
@@ -87,7 +88,7 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
       setSaved(true);
     } catch {
       setStatus("error");
-      setError("Could not save. Browser storage may be full or unavailable.");
+      setError("Could not save to your account. Check your connection and try again.");
     }
   }
 

@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/firebase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { parsePdf } from "@/lib/pdf";
 import { MAX_FILE_BYTES, MAX_FILE_LABEL, MAX_UPLOAD_BYTES, MAX_RESUME_CHARS } from "@/lib/limits";
@@ -52,6 +53,7 @@ function extractName(lines: string[]): string {
 export async function POST(req: NextRequest) {
   return routeResponse("upload", async () => {
     checkRequest(req, "multipart/form-data");
+    await requireUser(req);
     const bytesRead = await readBounded(req, MAX_UPLOAD_BYTES);
     let formData: FormData;
     try {

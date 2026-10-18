@@ -187,7 +187,7 @@ export default function Landing() {
     <div className="landing" ref={root}>
       <header className="landing-nav">
         <Link href="/" className="landing-brand" aria-label="ACA home"><Logo size={24} accent="#22d3ee" gap="#fb923c" track="#ffffff" />aca</Link>
-        <Link href="/app" className="landing-btn landing-btn-small">Open ACA</Link>
+        <Link href="/login" className="landing-btn landing-btn-small">Open ACA</Link>
       </header>
 
       <main>
@@ -200,7 +200,7 @@ export default function Landing() {
             </h1>
             <p className="lp-sub">ACA reads your resume, compares it with any job description, and shows you what to highlight. It never invents skills, and you submit every application yourself.</p>
             <div className="lp-actions">
-              <Link href="/app" className="landing-btn">Start with your resume</Link>
+              <Link href="/login" className="landing-btn">Start with your resume</Link>
               <a href="#how" className="landing-link">See how it works</a>
             </div>
           </div>
@@ -293,8 +293,8 @@ export default function Landing() {
         <section className="statements" aria-labelledby="trust-title">
           <h2 id="trust-title" className="sr-only">Built to be honest</h2>
           <div className="statement">
-            <p className="statement-text"><span className="line"><span>It stays in your browser.</span></span></p>
-            <p className="statement-note">Your profile and applications are saved on your device. Export a backup any time.</p>
+            <p className="statement-text"><span className="line"><span>It stays in your account.</span></span></p>
+            <p className="statement-note">Your profile and applications sync securely to your private account. Export a backup any time.</p>
           </div>
           <div className="statement">
             <p className="statement-text"><span className="line"><span>It never invents experience.</span></span></p>
@@ -308,14 +308,14 @@ export default function Landing() {
 
         <section className="lp-cta" aria-labelledby="lp-cta-title">
           <h2 id="lp-cta-title" className="lp-cta-title">Your next application<br />starts here.</h2>
-          <p className="lp-cta-sub">No account needed. Your data stays on this device.</p>
-          <Link href="/app" className="landing-btn">Open ACA</Link>
+          <p className="lp-cta-sub">Your own workspace. Ready on every device.</p>
+          <Link href="/login" className="landing-btn">Open ACA</Link>
         </section>
       </main>
 
       <footer className="landing-footer">
         <span className="footer-brand"><Logo size={18} accent="#22d3ee" gap="#fb923c" track="#ffffff" />ACA · Autonomous Career Agent</span>
-        <Link href="/app" className="landing-link">Open the app</Link>
+        <Link href="/login" className="landing-link">Open the app</Link>
       </footer>
     </div>
   );

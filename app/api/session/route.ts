@@ -1,3 +1,4 @@
+import { requireUser } from "@/lib/firebase-server";
 import { NextRequest, NextResponse } from "next/server";
 import { checkRequest, routeResponse } from "@/lib/http";
 import { newSession, sessionId, SESSION_COOKIE } from "@/lib/ai-guard";
@@ -5,6 +6,7 @@ import { newSession, sessionId, SESSION_COOKIE } from "@/lib/ai-guard";
 export async function POST(req: NextRequest) {
   return routeResponse("session", async () => {
     checkRequest(req, "application/json");
+    await requireUser(req);
     const existing = req.cookies.get(SESSION_COOKIE)?.value;
     const token = sessionId(existing) ? existing : newSession();
     const response = NextResponse.json({ aiAvailable: Boolean(token) });

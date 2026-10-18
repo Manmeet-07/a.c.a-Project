@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { GeistSans } from "geist/font/sans";
 import { GeistMono } from "geist/font/mono";
 import "./globals.css";
+import { AuthProvider } from "@/components/auth/AuthProvider";
 
 const description = "Match your resume to any job description, see what to highlight, and track every application. ACA never invents skills.";
 
@@ -24,7 +25,7 @@ export default async function RootLayout({
       lang="en"
       className={`${GeistSans.variable} ${GeistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col"><AuthProvider>{children}</AuthProvider></body>
     </html>
   );
 }

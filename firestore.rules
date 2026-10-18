@@ -1,0 +1,55 @@
+rules_version = '2';
+// Private account workspace. No public profiles or client-supplied roles.
+// users/{uid}/profile/current: contact strings (500/2000 chars), canonical
+// skills (<=200), resumeText (<=100000), updatedAt (legacy ISO string <=40).
+// users/{uid}/applications/{id}: id immutable and equal to document ID;
+// job company/title <=500, description <=50000, url <=2000; status enum;
+// createdAt immutable legacy ISO string, updatedAt <=40; notes <=10000;
+// optional tailorResult: score 0..100, band enum, boolean aiEnhanced,
+// canonical matched/missing skills and <=10 suggestion strings <=5000.
+// Date strings are display metadata, never used as proof of authorization.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function owner(uid) {
+      return request.auth != null && request.auth.uid == uid && request.auth.token.email_verified == true;
+    }
+    function text(value, maximum) { return value is string && value.size() <= maximum; }
+    function optionalText(data, key, maximum) { return !(key in data) || text(data[key], maximum); }
+    function skills(value) {
+      return value is list && value.size() <= 200 && value.toSet().hasOnly(["JavaScript","TypeScript","Python","Java","C++","C#","C","Go","Rust","Ruby","PHP","Swift","Kotlin","Scala","R","MATLAB","Verilog","VHDL","SQL","HTML","CSS","React","Next.js","Vue","Angular","Svelte","Tailwind CSS","Redux","Node.js","Express","Django","Flask","FastAPI","Spring Boot",".NET","GraphQL","REST","Pandas","NumPy","TensorFlow","PyTorch","Scikit-learn","Machine Learning","Deep Learning","NLP","Spark","Hadoop","ETL","PostgreSQL","MySQL","MongoDB","Redis","SQLite","DynamoDB","Elasticsearch","AWS","GCP","Azure","Docker","Kubernetes","Terraform","CI/CD","DevOps","Linux","Bash","Jenkins","GitHub Actions","Git","GitHub","GitLab","Jira","Agile","Scrum","Unit Testing","Microservices","API Design"]);
+    }
+    function suggestion(value, index) { return value.size() <= index || text(value[index], 5000); }
+    function suggestions(value) {
+      return value is list && value.size() <= 10 && suggestion(value,0) && suggestion(value,1) && suggestion(value,2) && suggestion(value,3) && suggestion(value,4) && suggestion(value,5) && suggestion(value,6) && suggestion(value,7) && suggestion(value,8) && suggestion(value,9);
+    }
+    function validProfile(data) {
+      return data.keys().hasAll(['name','email','phone','skills','resumeText','updatedAt']) &&
+        data.keys().hasOnly(['name','email','phone','skills','resumeText','updatedAt','address','city','state','postalCode','linkedin','github','website','portfolio','fileName']) &&
+        text(data.name,500) && text(data.email,500) && text(data.phone,500) && text(data.resumeText,100000) && text(data.updatedAt,40) && skills(data.skills) &&
+        optionalText(data,'address',2000) && optionalText(data,'city',2000) && optionalText(data,'state',2000) && optionalText(data,'postalCode',2000) && optionalText(data,'linkedin',2000) && optionalText(data,'github',2000) && optionalText(data,'website',2000) && optionalText(data,'portfolio',2000) && optionalText(data,'fileName',2000);
+    }
+    function validJob(data) {
+      return data is map && data.keys().hasAll(['company','title','description']) && data.keys().hasOnly(['company','title','description','url']) && text(data.company,500) && text(data.title,500) && text(data.description,50000) && optionalText(data,'url',2000);
+    }
+    function validResult(data) {
+      return data is map && data.keys().hasAll(['score','band','aiEnhanced','matchedSkills','missingSkills','suggestions']) && data.keys().hasOnly(['score','band','aiEnhanced','matchedSkills','missingSkills','suggestions']) &&
+        data.score is number && data.score >= 0 && data.score <= 100 && data.band in ['Strong match','Moderate match','Weak match'] && data.aiEnhanced is bool && skills(data.matchedSkills) && skills(data.missingSkills) && suggestions(data.suggestions);
+    }
+    function validApplication(data,id) {
+      return data.keys().hasAll(['id','job','status','createdAt','updatedAt']) && data.keys().hasOnly(['id','job','status','createdAt','updatedAt','notes','tailorResult']) &&
+        data.id == id && text(data.id,128) && data.id.matches('^[a-zA-Z0-9_-]+$') && validJob(data.job) &&
+        data.status in ['discovered','tailored','applied','interviewing','offer','rejected'] && text(data.createdAt,40) && text(data.updatedAt,40) && optionalText(data,'notes',10000) && (!('tailorResult' in data) || validResult(data.tailorResult));
+    }
+    match /users/{uid}/profile/current {
+      allow read, delete: if owner(uid);
+      allow create: if owner(uid) && validProfile(request.resource.data);
+      allow update: if owner(uid) && validProfile(request.resource.data);
+    }
+    match /users/{uid}/applications/{id} {
+      allow read, delete: if owner(uid);
+      allow create: if owner(uid) && validApplication(request.resource.data,id);
+      allow update: if owner(uid) && validApplication(request.resource.data,id) && request.resource.data.createdAt == resource.data.createdAt;
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

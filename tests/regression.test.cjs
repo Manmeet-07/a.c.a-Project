@@ -4,7 +4,8 @@ const assert = require('node:assert/strict');
 const vm = require('node:vm');
 const { performance } = require('node:perf_hooks');
 const { NextRequest } = require('next/server');
-const { load, pdf } = require('./helpers.cjs');
+const { load: loadModule, pdf } = require('./helpers.cjs');
+const load = (file, mocks = {}) => loadModule(file, { '@/lib/firebase-server': { requireUser: async () => 'verified-test-user' }, ...mocks });
 const origin = 'http://localhost:3000';
 function request(body, headers = {}) { return new NextRequest(origin+'/api/tailor', { method:'POST', headers:{origin, 'content-type':'application/json', ...headers}, body:JSON.stringify(body) }); }
 const valid = {resumeText:'Python SQL developer', jobDescription:'Looking for a Python SQL developer'};

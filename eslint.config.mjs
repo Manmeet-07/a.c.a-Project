@@ -9,7 +9,9 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
-    ".next-verify/**",
+    ".next-*/**",
+    ".firebase/**",
+    "tests/artifacts/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

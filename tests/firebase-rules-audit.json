@@ -1,0 +1,5 @@
+{
+  "score": 5,
+  "summary": "Prototype private-workspace rules enforce verified UID ownership, default deny, and identical create/update schema validation. Emulator tests cover cross-user and unauthenticated access, unverified accounts, privileged extra fields, malformed values, oversized fields, and immutable application identity. Review before broad release; field limits do not enforce per-user record-count or traffic quotas.",
+  "findings": []
+}

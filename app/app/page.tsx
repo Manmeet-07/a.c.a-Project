@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import AuthGate from "@/components/auth/AuthGate";
 import AppShell from "@/components/AppShell";
 
 export const metadata: Metadata = {
@@ -6,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function Workspace() {
-  return <AppShell />;
+  return <AuthGate><AppShell /></AuthGate>;
 }
