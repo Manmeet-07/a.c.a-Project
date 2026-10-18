@@ -5,6 +5,7 @@ import { MAX_FILE_BYTES, MAX_FILE_LABEL, MAX_UPLOAD_BYTES, MAX_RESUME_CHARS } fr
 import { checkRequest, readBounded, RequestError, routeResponse } from "@/lib/http";
 import { CandidateProfile } from "@/types/profile";
 import { extractSkills } from "@/lib/skills";
+import { extractProfileLinks } from "@/lib/profile-links";
 
 // pdf2json relies on Node's Buffer/stream APIs, so this route must run on
 // the Node.js runtime rather than the (default-in-some-configs) Edge
@@ -117,26 +118,7 @@ export async function POST(req: NextRequest) {
     const name = extractName(lines);
     const skills = extractSkills(text);
 
-    const urls = Array.from(
-      new Set(
-        Array.from(header.matchAll(/https?:\/\/[\w.-]+(?:\/[\w\-._~:/?#[\]@!$&'()*+,;=%]*)?/gi),
-          (match) => match[0].replace(/\/+$/, "")
-        )
-      )
-    );
-
-    const linkedin = urls.find((url) => /linkedin\.com/i.test(url));
-    const github = urls.find((url) => /github\.com/i.test(url));
-    const portfolio = urls.find((url) =>
-      /(portfolio|behance\.net|dribbble\.com|codepen\.io|codesandbox\.io|personal-site|website)/i.test(
-        url
-      )
-    );
-    const website =
-      portfolio ||
-      urls.find(
-        (url) => !/(linkedin\.com|github\.com|behance\.net|dribbble\.com|codepen\.io|codesandbox\.io)/i.test(url)
-      );
+    const { github, linkedin, portfolio, website } = extractProfileLinks(header);
 
     const locationLine = lines.find((line) =>
       /[A-Za-z ]+,\s*[A-Z]{2}\s*\d{5}(?:-\d{4})?/.test(line)
