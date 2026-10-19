@@ -16,7 +16,25 @@ async function verifyEmail(email) {
   const {oobCodes=[]}=await (await fetch('http://127.0.0.1:9099/emulator/v1/projects/demo-aca/oobCodes')).json();
   const action=oobCodes.findLast(item=>item.email===email && item.requestType==='VERIFY_EMAIL');
   assert.ok(action,'Verification email must be sent');
-  await require('firebase/auth').applyActionCode(testAuth,action.oobCode);
+  // Open the generated email link in a separate browser session, as an email
+  // client would. Applying the code directly with the SDK bypasses the handler.
+  const link=new URL(action.oobLink);
+  assert.equal(link.origin,'http://127.0.0.1:9099','Only local emulator links may be opened');
+  assert.equal(link.pathname,'/emulator/action');
+  assert.equal(link.searchParams.get('mode'),'verifyEmail');
+  const verificationContext=await browser.newContext();
+  try {
+    const verificationPage=await verificationContext.newPage();
+    const response=await verificationPage.goto(link.href);
+    assert.equal(response.status(),200,'Verification email link must open successfully');
+    const result=(await response.json()).authEmulator;
+    assert.equal(result.success,'The email has been successfully verified.');
+    assert.equal(result.email,email,'The link must verify the intended account');
+    const repeated=await verificationPage.reload();
+    assert.equal(repeated.status(),400,'Verification links are single-use');
+    assert.match((await repeated.json()).authEmulator.error,/expired or the link has already been used/);
+  } finally { await verificationContext.close(); }
+  console.log('PASS: emailed verification link works in a separate browser session; reused link is rejected.');
 }
 async function register(email) {
   console.log('Checking registration and verification screen.');
@@ -85,6 +103,9 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   const credential=await require('firebase/auth').signInWithEmailAndPassword(testAuth,testEmail,testPassword);
   const rejected=await fetch(origin+'/api/tailor',{method:'POST',headers:{origin,'content-type':'application/json',authorization:'Bearer '+await credential.user.getIdToken()},body:'{}'});
   assert.equal(rejected.status,403,'unverified users cannot process resumes');
+  await page.getByRole('button',{name:'I’ve verified my email'}).click();
+  await page.getByRole('status').filter({hasText:'Your email isn’t verified yet.'}).waitFor();
+  assert.equal(new URL(page.url()).pathname,'/register','Unverified accounts stay outside the workspace');
   await verifyEmail(testEmail);
   await page.getByRole('button',{name:'I’ve verified my email'}).click();
   await page.waitForURL('**/app');
