@@ -1,6 +1,6 @@
 # ACA accounts
 
-ACA stays on Vercel. Firebase Authentication manages email/password accounts;
+ACA stays on Vercel. Firebase Authentication manages email/password and Google accounts;
 Standard Cloud Firestore in `us-east4` stores each verified user's private data.
 The Firebase project is `aca-career-2026-mm07` (ACA Career), on the free plan.
 
@@ -10,6 +10,13 @@ The public landing page stays at `/`. Its links lead to `/login`; `/register`
 creates an account and sends an email-verification link. A verified user opens
 `/app`. Password resets are available from the login screen. Sign-out clears
 the workspace snapshots; authentication persists for the browser session.
+
+Both account screens offer **Continue with Google** using Firebase's popup flow.
+Google handles passwords and consent; ACA requests only the default identity
+scopes. A verified Google account opens the same private workspace and API
+authorization path as email/password. Cancelling the popup leaves the form
+usable. Account-provider conflicts direct users to their original sign-in method;
+ACA does not merge profiles or link credentials based on a client-supplied email.
 
 The processing APIs independently verify Firebase ID token signatures and the
 verified-email claim. A client-provided UID is never an authorization source.
@@ -31,7 +38,7 @@ Configure those same five variables on Vercel's production environment. The four
 build time; changing them requires a new build. `FIREBASE_PROJECT_ID` must match.
 With missing configuration, sign-in and workspace access stay disabled.
 
-The checked-in `firebase.json` enables email/password auth and lists authorized
+The checked-in `firebase.json` enables email/password and Google auth and lists authorized
 domains. Provision changes using your signed-in Firebase CLI:
 
 ```powershell
@@ -41,6 +48,26 @@ npx -y firebase-tools@latest deploy --only firestore,auth --project aca-career-2
 This deploys the database rules and indexes as well as the auth configuration.
 It does not deploy website hosting. Keep provider credentials and login codes
 out of source control and logs. No billing account or paid-plan upgrade is set up.
+
+For an auth-only change, deploy `--only auth`. Google provisioning uses the
+project owner's support email in `firebase.json`. The site security policy allows
+only its configured Firebase auth domain as the external sign-in frame. Production
+web config must keep `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` set to the Firebase Hosting
+auth domain, rather than the Vercel website domain.
+
+The current Firebase CLI provisions providers but does not synchronize the
+`authorizedDomains` array. Keep the listed exact domains in Firebase Console →
+Authentication → Settings → Authorized domains (or update that field with the
+Identity Toolkit Admin API), preserving any existing domains. Both ACA production
+domains and the local development hosts were added to the live project when
+Google sign-in was enabled. Do not authorize arbitrary Vercel preview domains.
+
+`npm run test:e2e:auth` tests Google popup cancellation, registration, verified API
+upload, private Firestore persistence, and returning sign-in with the same UID,
+using synthetic accounts in local emulators. This does not simulate Google's
+real consent service, browser extensions, or every mobile browser. Check the live
+popup with a real Google account before inviting a wider audience; never automate
+a real user's Google password.
 
 ## Data and rules
 
