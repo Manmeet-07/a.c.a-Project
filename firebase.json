@@ -6,8 +6,15 @@
     "indexes": "firestore.indexes.json"
   },
   "auth": {
-    "authorizedDomains": ["localhost", "aca-lemon.vercel.app", "aca-manmeet-sk.vercel.app", "aca-career-2026-mm07.firebaseapp.com"],
-    "providers": { "emailPassword": true, "anonymous": false }
+    "authorizedDomains": ["localhost", "127.0.0.1", "aca-lemon.vercel.app", "aca-manmeet-sk.vercel.app", "aca-career-2026-mm07.firebaseapp.com", "aca-career-2026-mm07.web.app"],
+    "providers": {
+      "emailPassword": true,
+      "anonymous": false,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "ACA Career",
+        "supportEmail": "manmeetkukreja10@gmail.com"
+      }
+    }
   },
   "emulators": {
     "auth": { "host": "127.0.0.1", "port": 9099 },

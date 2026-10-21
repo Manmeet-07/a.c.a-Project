@@ -612,6 +612,12 @@ body:has(.auth-stage) { background: var(--ink); }
 .auth-card h2 + p { margin-top: 10px; }
 .auth-card strong { color: var(--ink-text); }
 .auth-form { display: flex; flex-direction: column; gap: 16px; margin-top: 28px; }
+.auth-google { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 24px; padding: 12px 18px; border: 1px solid #747775; border-radius: 12px; background: #131314; color: #e3e3e3; font-size: 14px; font-weight: 500; cursor: pointer; }
+.auth-google:hover:not(:disabled) { background: #242426; }
+.auth-google:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 4px; }
+.auth-google svg { flex: none; }
+.auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--ink-muted); font-size: 13px; }
+.auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--ink-line); }
 .auth-stage .field-label { display: flex; flex-direction: column; gap: 8px; color: #d2d6dc; font-size: 14px; font-weight: 500; }
 .auth-stage .text-input {
   display: block; width: 100%; min-height: 48px; padding: 12px 14px; border-radius: 14px;
