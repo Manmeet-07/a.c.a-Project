@@ -10,11 +10,11 @@ import { logout, useAuth } from "./AuthProvider";
 import TotpChallenge from "./TotpChallenge";
 
 type Action = { type: "enroll" } | { type: "remove"; factorId: string };
-export default function SecuritySettings() {
+export default function SecuritySettings({ startSetup = false }: { startSetup?: boolean }) {
   const { user } = useAuth();
   const router = useRouter();
   const [factors, setFactors] = useState(() => user ? totpFactors(user) : []);
-  const [action, setAction] = useState<Action | null>(null);
+  const [action, setAction] = useState<Action | null>(() => startSetup ? { type: "enroll" } : null);
   const [method, setMethod] = useState<"password" | "google.com">(() => user?.providerData.some(provider => provider.providerId === "google.com") ? "google.com" : "password");
   const [password, setPassword] = useState("");
   const [resolver, setResolver] = useState<MultiFactorResolver | null>(null);

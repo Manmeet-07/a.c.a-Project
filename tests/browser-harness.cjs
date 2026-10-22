@@ -12,6 +12,12 @@ const emulate = process.env.ACA_AUTH_E2E === 'true';
 let server,browser,page, testAuth, testApp, testAdminApp, testDatabase;
 const testEmail = 'maya-'+Date.now()+'@example.test';
 const testPassword = 'Synthetic-Only-Password-27!';
+async function skipTwoFactorOffer() {
+  await page.getByRole('heading',{name:'Protect your account.',exact:true}).waitFor();
+  assert.equal(await page.getByLabel('Upload PDF resume').count(),0,'Offer appears before the workspace');
+  await page.getByRole('button',{name:'Not now',exact:true}).click();
+  await page.getByRole('navigation',{name:'Main navigation',exact:true}).waitFor();
+}
 async function verifyEmail(email) {
   const {oobCodes=[]}=await (await fetch('http://127.0.0.1:9099/emulator/v1/projects/demo-aca/oobCodes')).json();
   const action=oobCodes.findLast(item=>item.email===email && item.requestType==='VERIFY_EMAIL');
@@ -117,6 +123,10 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await page.getByRole('button',{name:'I’ve verified my email'}).click();
   await page.waitForURL('**/app');
   console.log('Verified account opened workspace; checking upload, matching and persistence.');
+  await skipTwoFactorOffer();
+  await page.reload();
+  await page.getByRole('navigation',{name:'Main navigation',exact:true}).waitFor();
+  assert.equal(await page.getByRole('heading',{name:'Protect your account.',exact:true}).count(),0,'Not now survives a reload during this sign-in');
   const adminApp=require('firebase-admin/app').initializeApp({projectId:'demo-aca'},'browser-test');
   const db=require('firebase-admin/firestore').getFirestore(adminApp);
   testAdminApp=adminApp;testDatabase=db;
@@ -167,6 +177,7 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await page.getByLabel('Password',{exact:true}).fill(testPassword);
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
   await page.waitForURL('**/app');
+  await skipTwoFactorOffer();
   await page.getByRole('heading',{name:'Maya Chen'}).waitFor();
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await page.waitForURL('**/login');
@@ -174,6 +185,7 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await register(secondEmail);await verifyEmail(secondEmail);
   await page.getByRole('button',{name:'I’ve verified my email'}).click();
   await page.waitForURL('**/app');
+  await skipTwoFactorOffer();
   await page.getByLabel('Upload PDF resume').waitFor();
   assert.equal(await page.getByRole('heading',{name:'Maya Chen'}).count(),0,'Other accounts cannot see the profile');
   assert.equal((await db.collection('users/'+userId+'/applications').get()).size,1);
@@ -201,6 +213,13 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await google.locator('#display-name-input').fill('Google Candidate');
   await google.locator('#sign-in').click();
   await page.waitForURL('**/app');
+  await page.getByRole('heading',{name:'Protect your account.',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Set up 2FA',exact:true}).click();
+  await page.getByRole('heading',{name:'Two-factor authentication',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Confirm with Google',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Cancel changes',exact:true}).click();
+  await page.getByRole('link',{name:'Back to workspace'}).click();
+  await page.getByRole('navigation',{name:'Main navigation',exact:true}).waitFor();
   const googleUser=await require('firebase-admin/auth').getAuth(adminApp).getUserByEmail(googleEmail);
   assert.equal(googleUser.emailVerified,true);
   assert.ok(googleUser.providerData.some(provider=>provider.providerId==='google.com'));
@@ -215,6 +234,7 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   const returning=await returningPopup;
   await returning.getByText(googleEmail,{exact:true}).click();
   await page.waitForURL('**/app');
+  await skipTwoFactorOffer();
   await page.getByRole('heading',{name:'Google Candidate'}).waitFor();
   assert.equal((await require('firebase-admin/auth').getAuth(adminApp).getUserByEmail(googleEmail)).uid,googleUser.uid);
   await page.getByRole('link',{name:'Security',exact:true}).click();

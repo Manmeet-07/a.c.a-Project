@@ -21,9 +21,11 @@ module.exports=async function checkMfa({page,adminAuth,origin,confirmTestAccount
   async function startSetup(){await page.getByRole('button',{name:'Set up authenticator',exact:true}).click();await page.getByLabel('Current password',{exact:true}).fill(password);await page.getByRole('button',{name:'Confirm password',exact:true}).click();await page.getByLabel('Authenticator setup key',{exact:true}).waitFor();return page.getByLabel('Authenticator setup key',{exact:true}).inputValue();}
   try {
     user=await adminAuth.createUser({email,password,emailVerified:true,displayName:'Synthetic MFA test'});
-    await signIn();await page.waitForURL('**/app');await security();
+    await signIn();await page.waitForURL('**/app');
+    await page.getByRole('heading',{name:'Protect your account.',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Set up 2FA',exact:true}).click();
+    await page.getByRole('heading',{name:'Two-factor authentication',exact:true}).waitFor();
     await page.getByRole('status').filter({hasText:'Two-factor authentication is off.'}).waitFor();
-    await page.getByRole('button',{name:'Set up authenticator',exact:true}).click();
     await page.getByLabel('Current password',{exact:true}).fill('Incorrect-synthetic-password');
     await page.getByRole('button',{name:'Confirm password',exact:true}).click();
     await page.getByRole('alert').filter({hasText:'We couldn’t confirm your sign-in.'}).waitFor();
@@ -55,6 +57,8 @@ module.exports=async function checkMfa({page,adminAuth,origin,confirmTestAccount
     await page.getByRole('button',{name:'Cancel verification',exact:true}).click();await signIn();await page.getByRole('heading',{name:'Verify your sign-in.'}).waitFor();
     lastAcceptedCode=await freshCode(secret,lastAcceptedCode);
     await page.getByLabel('Authenticator code',{exact:true}).fill(lastAcceptedCode);await page.getByRole('button',{name:'Verify and continue',exact:true}).click();await page.waitForURL('**/app');
+    await page.getByRole('navigation',{name:'Main navigation',exact:true}).waitFor();
+    assert.equal(await page.getByRole('button',{name:'Not now',exact:true}).count(),0,'Enrolled users cannot skip the required code challenge');
     await security();await page.getByRole('button',{name:'Remove authenticator 1',exact:true}).click();
     await page.getByLabel('Current password',{exact:true}).fill(password);await page.getByRole('button',{name:'Confirm password',exact:true}).click();
     await page.getByRole('heading',{name:'Verify your sign-in.'}).waitFor();
@@ -65,6 +69,9 @@ module.exports=async function checkMfa({page,adminAuth,origin,confirmTestAccount
     await page.getByLabel('Authenticator code',{exact:true}).fill(lastAcceptedCode);await page.getByRole('button',{name:'Verify and continue',exact:true}).click();await page.waitForURL('**/login');
     assert.equal(((await adminAuth.getUser(user.uid)).multiFactor?.enrolledFactors.length || 0),0);
     await signIn();await page.waitForURL('**/app');
+    await page.getByRole('heading',{name:'Protect your account.',exact:true}).waitFor();
+    await page.getByRole('button',{name:'Not now',exact:true}).click();
+    await page.getByRole('navigation',{name:'Main navigation',exact:true}).waitFor();
     console.log('PASS: real Firebase TOTP enrollment, cancellation, incorrect codes, sign-in enforcement, and reauthenticated removal. No secrets logged.');
   } finally {if(user)await adminAuth.deleteUser(user.uid);}
 };
