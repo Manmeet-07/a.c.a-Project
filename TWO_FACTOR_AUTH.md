@@ -1,6 +1,13 @@
 # Authenticator-app two-factor authentication
 
-Users can open **Security** from their workspace, confirm their password or
+Immediately after a verified sign-in, users without enrolled factors see an
+optional **Set up 2FA** / **Not now** step before their workspace opens. Setup
+goes directly to identity confirmation. Not now is remembered for the current
+tab's sign-in, survives a refresh when session storage is available, and clears
+on sign-out. Storage failure retains an in-memory fallback. This preference is
+never proof of enrollment and cannot skip an enrolled account's required code.
+
+Users can also open **Security** from their workspace, confirm their password or
 Google sign-in, scan a locally generated QR code (or enter its setup key), and
 confirm a six-digit authenticator code. Setup stays incomplete until Firebase
 accepts that code. Cancelling setup discards the displayed key.

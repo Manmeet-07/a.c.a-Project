@@ -13,6 +13,8 @@ intended audience. A successful deployment or test run alone is insufficient.
   Firebase ID tokens and verified-email claims independently of the UI.
 - Firestore rules isolate workspace data by UID. Emulator tests exercise rules
   and account isolation, including Google accounts.
+- Authenticator-based MFA is optional at enrollment and required at sign-in for
+  enrolled accounts. Unenrolled users see a setup/skip offer before the workspace.
 - Upload byte, parser time, text, and memory limits; bounded processing and
   visible local fallbacks for unavailable AI.
 - Nonce-based content security policy, HTTPS hosting, safe error responses, and
@@ -39,3 +41,5 @@ See FIREBASE_SETUP.md for configuration and test instructions, DEPLOYMENT.md for
 hosting/AI safeguards, and PRE_PROD_AUDIT.md for historical findings and their
 remediation status. Historical test and audit counts are dated evidence, not a
 current security certification.
+The current feature inventory, test record, and prioritized findings are in
+[ACA_AUDIT_REPORT.md](ACA_AUDIT_REPORT.md).

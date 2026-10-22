@@ -3,6 +3,10 @@
 A resume parsing, ATS tailoring, and application-tracking tool, built as a
 single Next.js app.
 
+Current engineering evidence and known limitations: [ACA audit](ACA_AUDIT_REPORT.md).
+Project explanation and interview preparation: [Recruiter guide](RECRUITER_GUIDE.md).
+Account protection and recovery: [Two-factor authentication](TWO_FACTOR_AUTH.md).
+
 ## Scope vs. the original spec
 
 The full product spec (`Autonomous_Career_Agent_Specification.pdf`)

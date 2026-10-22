@@ -11,8 +11,10 @@ creates an account and sends an email-verification link. A verified user opens
 `/app`. Password resets are available from the login screen. Sign-out clears
 the workspace snapshots; authentication persists for the browser session.
 
-Optional authenticator-app two-factor authentication is available from the
-workspace's **Security** link. See [TWO_FACTOR_AUTH.md](TWO_FACTOR_AUTH.md) for
+Optional authenticator-app two-factor authentication is offered immediately after
+a verified sign-in, before opening the workspace, with **Set up 2FA** and **Not
+now** choices. It remains available from the workspace's **Security** link.
+See [TWO_FACTOR_AUTH.md](TWO_FACTOR_AUTH.md) for
 setup, project configuration, recovery limitations, and verification details.
 
 Both account screens offer **Continue with Google** using Firebase's popup flow.
