@@ -616,6 +616,15 @@ body:has(.auth-stage) { background: var(--ink); }
 .auth-google:hover:not(:disabled) { background: #242426; }
 .auth-google:focus-visible { outline: 2px solid var(--brand-cyan); outline-offset: 4px; }
 .auth-google svg { flex: none; }
+.security-page { max-width: 800px; padding-top: 32px; padding-bottom: 48px; }
+.security-card { margin-top: 24px; }
+.security-card h1 { font-size: clamp(26px, 5vw, 38px); line-height: 1.2; }
+.security-qr { max-width: 100%; height: auto; border-radius: 12px; }
+.security-key { font-family: var(--font-mono), monospace; }
+.security-confirm { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; line-height: 1.6; }
+.security-confirm input { flex: none; margin-top: 5px; }
+.security-factors { padding: 0; list-style: none; }
+.security-factors li { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--ink-line); }
 .auth-divider { display: flex; align-items: center; gap: 12px; margin: 20px 0; color: var(--ink-muted); font-size: 13px; }
 .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: var(--ink-line); }
 .auth-stage .field-label { display: flex; flex-direction: column; gap: 8px; color: #d2d6dc; font-size: 14px; font-weight: 500; }

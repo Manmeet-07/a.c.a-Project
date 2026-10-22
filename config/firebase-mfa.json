@@ -1,0 +1,9 @@
+{
+  "state": "ENABLED",
+  "providerConfigs": [
+    {
+      "state": "ENABLED",
+      "totpProviderConfig": { "adjacentIntervals": 1 }
+    }
+  ]
+}

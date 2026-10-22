@@ -9,9 +9,12 @@ import {
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   updateProfile,
+  type MultiFactorResolver,
 } from "firebase/auth";
 import { getFirebase } from "@/lib/firebase-client";
 import { googleSignInError, signInWithGoogle } from "@/lib/google-auth";
+import { mfaResolver } from "@/lib/mfa";
+import TotpChallenge from "./TotpChallenge";
 import { logout, useAuth } from "./AuthProvider";
 import Icon from "../Icon";
 import Logo from "../Logo";
@@ -102,6 +105,7 @@ export function AuthScreen({
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [reset, setReset] = useState(false);
+  const [resolver, setResolver] = useState<MultiFactorResolver | null>(null);
   useEffect(() => {
     if (redirect && user?.emailVerified) router.replace("/app");
   }, [user, user?.emailVerified, redirect, router]);
@@ -146,7 +150,9 @@ export function AuthScreen({
         setPassword("");
       }
     } catch (error) {
-      setError(friendlyError(error));
+      const challenge = mfaResolver(error);
+      if (challenge) { setResolver(challenge); setPassword(""); setConfirm(""); }
+      else setError(friendlyError(error));
     } finally {
       setBusy(false);
     }
@@ -160,6 +166,7 @@ export function AuthScreen({
         </div>
       </>
     );
+  if (resolver) return <TotpChallenge resolver={resolver} onComplete={() => setResolver(null)} onCancel={() => { setResolver(null); setError(""); }} />;
   if (user && !user.emailVerified)
     return (
       <>
@@ -289,7 +296,9 @@ export function AuthScreen({
                 setPassword("");
                 setConfirm("");
               } catch (error) {
-                setError(googleSignInError(error));
+                const challenge = mfaResolver(error);
+                if (challenge) { setResolver(challenge); setPassword(""); setConfirm(""); }
+                else setError(googleSignInError(error));
               } finally {
                 setGoogleBusy(false);
                 setBusy(false);

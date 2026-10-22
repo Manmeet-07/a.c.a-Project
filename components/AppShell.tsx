@@ -48,7 +48,7 @@ export default function AppShell() {
               </button>
             ))}
           </nav>
-          <div className="account-menu"><span className="nav-note" title={user?.email || ""}>{user?.email}</span><button className="btn btn-secondary" onClick={() => { void logout().catch(() => setAccountError("Could not sign out. Please try again.")); }}>Sign out</button></div>
+          <div className="account-menu"><span className="nav-note" title={user?.email || ""}>{user?.email}</span><Link className="btn btn-secondary" href="/settings/security">Security</Link><button className="btn btn-secondary" onClick={() => { void logout().catch(() => setAccountError("Could not sign out. Please try again.")); }}>Sign out</button></div>
         </div>
       </header>
       <main className="page" ref={page}>
