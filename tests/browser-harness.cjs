@@ -83,6 +83,9 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await page.waitForURL('**/login');
   await page.getByRole('heading',{name:'Welcome back.'}).waitFor();
   await page.getByRole('button',{name:'Continue with Google',exact:true}).waitFor();
+  await page.goto(origin+'/settings/security',{waitUntil:'commit'});
+  await page.waitForURL('**/login');
+  await page.getByRole('heading',{name:'Welcome back.'}).waitFor();
   const artifacts=path.resolve('tests/artifacts');fs.mkdirSync(artifacts,{recursive:true});
   await page.screenshot({path:path.join(artifacts,'login-desktop.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});
@@ -214,6 +217,14 @@ async function port(){const listener=net.createServer();await new Promise(r=>lis
   await page.waitForURL('**/app');
   await page.getByRole('heading',{name:'Google Candidate'}).waitFor();
   assert.equal((await require('firebase-admin/auth').getAuth(adminApp).getUserByEmail(googleEmail)).uid,googleUser.uid);
+  await page.getByRole('link',{name:'Security',exact:true}).click();
+  await page.getByRole('heading',{name:'Two-factor authentication',exact:true}).waitFor();
+  await page.getByRole('status').filter({hasText:'Two-factor authentication is off.'}).waitFor();
+  await page.getByRole('button',{name:'Set up authenticator',exact:true}).click();
+  await page.getByRole('button',{name:'Confirm with Google',exact:true}).waitFor();
+  await page.getByRole('button',{name:'Cancel changes',exact:true}).click();
+  await page.getByRole('link',{name:'Back to workspace'}).click();
+  await page.getByRole('heading',{name:'Google Candidate'}).waitFor();
   assert.deepEqual(errors,[]);
   console.log('PASS: Google popup cancellation → Google registration → verified API upload → private saved profile → returning Google sign-in.');
   console.log('PASS: register → verify → upload → tailor → track → persist → deduplicate → sign out → reset → sign in → account isolation.');

@@ -11,6 +11,10 @@ creates an account and sends an email-verification link. A verified user opens
 `/app`. Password resets are available from the login screen. Sign-out clears
 the workspace snapshots; authentication persists for the browser session.
 
+Optional authenticator-app two-factor authentication is available from the
+workspace's **Security** link. See [TWO_FACTOR_AUTH.md](TWO_FACTOR_AUTH.md) for
+setup, project configuration, recovery limitations, and verification details.
+
 Both account screens offer **Continue with Google** using Firebase's popup flow.
 Google handles passwords and consent; ACA requests only the default identity
 scopes. A verified Google account opens the same private workspace and API
