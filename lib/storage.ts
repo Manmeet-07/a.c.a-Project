@@ -16,6 +16,7 @@ import { getFirebase } from "./firebase-client";
 import {
   isApplication,
   isProfile,
+  MAX_APPLICATIONS,
   parseBackup,
   sameJob,
 } from "./workspace-data";
@@ -207,10 +208,25 @@ export function getProfile() {
 export function getApplications() {
   return applications;
 }
-export async function setProfile(value: CandidateProfile) {
+// Capture before slow work (e.g. an upload) and pass to setProfile so the
+// result can't land in an account that signed in meanwhile.
+export function workspaceAccount() {
+  return { uid, generation };
+}
+export async function setProfile(
+  value: CandidateProfile,
+  expected?: ReturnType<typeof workspaceAccount>,
+) {
   if (!isProfile(value))
     throw new StorageError("Profile contains invalid or oversized fields.");
   const current = account();
+  if (
+    expected &&
+    (expected.uid !== current.uid || expected.generation !== current.generation)
+  )
+    throw new StorageError(
+      "Your account changed before this finished. Nothing was saved.",
+    );
   try {
     await setDoc(
       doc(current.db, "users", current.uid, "profile", "current"),
@@ -277,10 +293,21 @@ export async function upsertApplication(application: Application) {
         throw new StorageError(
           "This application needs recovery before it can be changed.",
         );
+      if (!previous.exists() && applications.length >= MAX_APPLICATIONS)
+        throw new StorageError(
+          `You can track up to ${MAX_APPLICATIONS} applications. Delete some before adding more.`,
+        );
       const next = isApplication(old)
         ? {
             ...old,
             ...application,
+            // Tracker and Tailor saves may leave these empty; keep what's stored.
+            job: {
+              ...old.job,
+              ...application.job,
+              url: application.job.url || old.job.url,
+              description: application.job.description || old.job.description,
+            },
             id,
             createdAt: old.createdAt,
             status: old.status,
@@ -364,11 +391,14 @@ export function exportPreviousBackup() {
     );
   return previousBackup;
 }
-export async function importBackup(text: string) {
+export function importBackup(text: string) {
+  return importWorkspace(text, false);
+}
+async function importWorkspace(text: string, legacy: boolean) {
   const current = account();
   let incoming: ReturnType<typeof parseBackup>;
   try {
-    incoming = parseBackup(text);
+    incoming = parseBackup(text, legacy);
   } catch (error) {
     throw new StorageError(
       error instanceof Error ? error.message : "Invalid backup",
@@ -378,7 +408,9 @@ export async function importBackup(text: string) {
   const records = new Map<string, Application>();
   for (const app of incoming.applications) {
     const id = await applicationId(app);
-    records.set(id, { ...app, id });
+    const duplicate = records.get(id);
+    if (!duplicate || app.updatedAt > duplicate.updatedAt)
+      records.set(id, { ...app, id });
   }
   assertAccount(current);
   try {
@@ -390,7 +422,24 @@ export async function importBackup(text: string) {
       const existing = await Promise.all(
         references.map((reference) => transaction.get(reference)),
       );
+      const profileReference = doc(
+        current.db,
+        "users",
+        current.uid,
+        "profile",
+        "current",
+      );
+      const oldProfile =
+        legacy && incoming.profile
+          ? await transaction.get(profileReference)
+          : null;
       assertAccount(current);
+      const added = existing.filter((record) => !record.exists()).length;
+      // Also keeps every import within Firestore's 500 writes per transaction.
+      if (applications.length + added > MAX_APPLICATIONS)
+        throw new StorageError(
+          `This import would take your account over ${MAX_APPLICATIONS} applications. Nothing was imported.`,
+        );
       existing.forEach((record, index) => {
         if (!record.exists())
           transaction.set(
@@ -398,23 +447,30 @@ export async function importBackup(text: string) {
             plain(records.get(references[index].id)!),
           );
       });
-      if (incoming.profile)
-        transaction.set(
-          doc(current.db, "users", current.uid, "profile", "current"),
-          plain(incoming.profile),
-        );
+      // Legacy browser data never replaces a newer (or unreadable) profile.
+      const old = oldProfile?.data();
+      if (
+        incoming.profile &&
+        (!oldProfile ||
+          !oldProfile.exists() ||
+          (isProfile(old) && incoming.profile.updatedAt > old.updatedAt))
+      )
+        transaction.set(profileReference, plain(incoming.profile));
     });
     assertAccount(current);
     previousBackup = snapshot;
   } catch (error) {
     throw failure(error);
   }
+  return { skipped: incoming.skipped };
 }
+const LEGACY_IMPORTED = "aca:legacy-imported";
 export function hasLegacyBrowserData() {
   try {
     return Boolean(
-      window.localStorage.getItem("aca:profile") ||
-        window.localStorage.getItem("aca:applications"),
+      !window.localStorage.getItem(LEGACY_IMPORTED) &&
+        (window.localStorage.getItem("aca:profile") ||
+          window.localStorage.getItem("aca:applications")),
     );
   } catch {
     return false;
@@ -423,5 +479,10 @@ export function hasLegacyBrowserData() {
 export async function importLegacyBrowserData() {
   account();
   const { exportBackup: exportLegacy } = await import("./legacy-storage");
-  await importBackup(exportLegacy()); // Explicit user action only; originals remain intact.
+  // Explicit user action only; originals remain intact.
+  const result = await importWorkspace(exportLegacy(), true);
+  try {
+    window.localStorage.setItem(LEGACY_IMPORTED, new Date().toISOString());
+  } catch {}
+  return result;
 }

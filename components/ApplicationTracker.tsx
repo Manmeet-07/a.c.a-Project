@@ -83,12 +83,14 @@ export default function ApplicationTracker() {
             <div className="field-grid">
               <label className="field"><span className="field-label">Company</span><input
                 className="input"
+                maxLength={500}
                 value={draft.company}
                 onChange={(e) => setDraft({ ...draft, company: e.target.value })}
                 required
               /></label>
               <label className="field"><span className="field-label">Job title</span><input
                 className="input"
+                maxLength={500}
                 value={draft.title}
                 onChange={(e) => setDraft({ ...draft, title: e.target.value })}
                 required
@@ -97,6 +99,7 @@ export default function ApplicationTracker() {
             <label className="field"><span className="field-label">Job posting URL <span className="optional">(optional)</span></span><input
               className="input"
               type="url"
+              maxLength={2000}
               placeholder="https://"
               value={draft.url}
               onChange={(e) => setDraft({ ...draft, url: e.target.value })}

@@ -21,9 +21,12 @@ export default function BackupControls() {
         <summary>Backups and data</summary>
         <p className="muted">Your data syncs to your account. Export a private backup to keep a copy. Importing merges applications and replaces the profile; a recovery snapshot is available until you sign out or reload.</p>
         {hasLegacyBrowserData() && <button className="btn btn-secondary" disabled={busy} onClick={async () => {
-          if (!window.confirm("Import the previous data saved in this browser into your signed-in account? Only do this on your own device. Your original browser data will be preserved.")) return;
+          if (!window.confirm("Import the previous data saved in this browser into your signed-in account? Only do this on your own device. Applications are merged; your account profile is kept unless the browser copy is newer. Your original browser data will be preserved.")) return;
           setBusy(true);
-          try { await importLegacyBrowserData(); setMessage("Previous browser data imported into your account."); }
+          try {
+            const { skipped } = await importLegacyBrowserData();
+            setMessage(`Previous browser data imported into your account.${skipped ? ` ${skipped} unreadable or oversized record${skipped === 1 ? " was" : "s were"} skipped and remain${skipped === 1 ? "s" : ""} in this browser.` : ""}`);
+          }
           catch (error) { setMessage(error instanceof Error ? error.message : "Import failed"); }
           finally { setBusy(false); }
         }}>Import previous browser data</button>}

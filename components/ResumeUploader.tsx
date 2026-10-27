@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import Icon from "./Icon";
 import ResumeProfile from "./ResumeProfile";
 import { CandidateProfile } from "@/types/profile";
-import { setProfile as saveProfile, useProfile } from "@/lib/storage";
+import { setProfile as saveProfile, useProfile, workspaceAccount } from "@/lib/storage";
 import { authenticatedFetch } from "@/lib/firebase-client";
 import { MAX_FILE_BYTES, MAX_FILE_LABEL } from "@/lib/limits";
 
@@ -35,6 +35,7 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
     }
 
     setStatus("loading");
+    const owner = workspaceAccount();
 
     const formData = new FormData();
     formData.append("resume", file);
@@ -54,7 +55,7 @@ export default function ResumeUploader({ onNavigate }: { onNavigate?: (tab: "tai
       }
 
       const newProfile: CandidateProfile = data.profile;
-      try { await saveProfile(newProfile); }
+      try { await saveProfile(newProfile, owner); }
       catch (error) {
         setStatus("error");
         setError(error instanceof Error ? error.message : "Could not save to your account. Please try again.");
