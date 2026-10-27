@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type MouseEvent } from "react";
+import { useEffect, useRef, type MouseEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import gsap from "gsap";
@@ -58,6 +58,9 @@ function offsetIn(el: HTMLElement, root: HTMLElement) {
 export default function Landing() {
   const root = useRef<HTMLDivElement>(null);
   const router = useRouter();
+  const wipeTl = useRef<gsap.core.Timeline | null>(null);
+  // Leaving mid-wipe (Back, another link) must not still push to /login.
+  useEffect(() => () => { wipeTl.current?.revert(); }, []);
 
   // Into the app: an ink circle spreads from the click and the sign-in page
   // (same ink background) takes over underneath it.
@@ -67,7 +70,8 @@ export default function Landing() {
     e.preventDefault();
     const at = `${e.clientX}px ${e.clientY}px`;
     const radius = Math.hypot(Math.max(e.clientX, innerWidth - e.clientX), Math.max(e.clientY, innerHeight - e.clientY));
-    gsap.timeline({ onComplete: () => router.push("/login") })
+    wipeTl.current?.revert();
+    wipeTl.current = gsap.timeline({ onComplete: () => { if (location.pathname === "/") router.push("/login"); } })
       .set(wipe, { visibility: "visible", clipPath: `circle(0px at ${at})` })
       .to(wipe, { clipPath: `circle(${radius}px at ${at})`, duration: 0.75, ease: "power3.inOut" })
       .from(wipe.querySelector(".lp-wipe-ring"), { scale: 0.4, opacity: 0, duration: 0.6, ease: "power3.out" }, 0.25);
@@ -76,7 +80,8 @@ export default function Landing() {
   useGSAP(() => {
     const mm = gsap.matchMedia();
 
-    mm.add("(min-width: 800px) and (prefers-reduced-motion: no-preference)", () => {
+    // Every scene is "screen" only: printing reverts to the static resting layout.
+    mm.add("screen and (min-width: 800px) and (prefers-reduced-motion: no-preference)", () => {
       const el = root.current!;
       const cleanups: (() => void)[] = [];
       el.classList.add("is-cinematic");
@@ -236,7 +241,7 @@ export default function Landing() {
     });
 
     // Phones: no pinning, just a light reveal as each block scrolls into view.
-    mm.add("(max-width: 799px) and (prefers-reduced-motion: no-preference)", () => {
+    mm.add("screen and (max-width: 799px) and (prefers-reduced-motion: no-preference)", () => {
       const reveal = (targets: gsap.TweenTarget, trigger: string, vars: gsap.TweenVars = {}) =>
         gsap.from(targets, { opacity: 0, y: 24, duration: 0.8, ease: "power3.out", stagger: 0.06, ...vars, scrollTrigger: { trigger, start: "top 85%", once: true } });
       gsap.utils.toArray<HTMLElement>(".line > .story-line", root.current).forEach(line =>
@@ -250,7 +255,7 @@ export default function Landing() {
     });
 
     // Every screen size: the closing scenes.
-    mm.add("(prefers-reduced-motion: no-preference)", () => {
+    mm.add("screen and (prefers-reduced-motion: no-preference)", () => {
       const el = root.current!;
       // Proof: each number counts to its real value once (0 counts down).
       gsap.utils.toArray<HTMLElement>(".fact", el).forEach((fact, i) => {

@@ -372,10 +372,7 @@ p { margin: 0; }
 
 /* Small screens */
 @media (max-width: 720px) {
-  .nav-inner { grid-template-columns: auto 1fr; padding: 0 16px; }
-  .tabs { justify-self: end; }
   .tab { padding: 8px 12px; }
-  .nav-note { display: none; }
   .page { padding: 0 16px 48px; }
   .hero { padding: 40px 0 28px; }
   .card { padding: 22px; border-radius: 18px; }
@@ -713,7 +710,23 @@ body:has(.auth-stage) { background: var(--ink); }
 .account-identity { display: block; font-size: 13px; color: var(--ink-muted); margin-bottom: 12px; overflow-wrap: anywhere; }
 .account-menu { display: flex; align-items: center; justify-content: flex-end; gap: 12px; min-width: 0; }
 .account-menu .nav-note { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-@media (max-width: 700px) { .account-menu .nav-note { display: none; } .account-menu .btn { font-size: 13px; padding: 0 14px; min-height: 34px; } }
+/* Below ~960px the email no longer fits beside the centred tabs; below 720px
+   the tabs move to a row of their own so the account buttons stay on screen. */
+@media (max-width: 960px) {
+  .nav-inner { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .tabs { justify-self: center; }
+  .account-menu { gap: 8px; }
+  .account-menu .nav-note { display: none; }
+  .account-menu .btn { font-size: 13px; padding: 0 14px; min-height: 34px; }
+}
+@media (max-width: 720px) {
+  .nav-inner { grid-template-columns: auto 1fr; grid-template-areas: "brand account" "tabs tabs"; height: auto; min-height: 52px; padding: 8px 16px 10px; row-gap: 8px; }
+  .brand { grid-area: brand; }
+  .account-menu { grid-area: account; }
+  .account-menu .btn { padding: 0 12px; }
+  .tabs { grid-area: tabs; justify-self: stretch; }
+  .tab { flex: 1; justify-content: center; }
+}
 @media (max-width: 860px) {
   .auth-layout { grid-template-columns: 1fr; gap: 36px; padding: 40px 20px 56px; max-width: 560px; margin: 0 auto; }
   .auth-story { padding-top: 0; }
@@ -727,4 +740,13 @@ body:has(.auth-stage) { background: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .auth-title .line > span, .auth-rise, .auth-preview, .auth-card, .auth-card-content, .auth-preview .score-value, .auth-preview-score { animation: none; }
   .auth-spinner { animation-duration: 2.4s; }
+}
+/* Print: entrance and scroll effects never ran or stopped half way, so show
+   everything at rest. */
+@media print {
+  [data-reveal], .hero, .hero .line > span, .hero p, .lp-title .line > span, .lp-sub, .lp-actions,
+  .auth-title .line > span, .auth-rise, .auth-preview, .auth-card, .auth-card-content {
+    animation: none !important; opacity: 1 !important; transform: none !important;
+  }
+  .lp-wipe, .lp-spot { display: none !important; }
 }

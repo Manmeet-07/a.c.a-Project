@@ -33,3 +33,25 @@ test('existing answers, disabled/hidden controls, screening fields and unmatched
   run(fields);
   assert.deepEqual(fields.map(item=>item.value),['First name','','','','','','','']);
 });
+test('emergency contacts, references and employers keep their own details',()=>{
+  const emergency={querySelector:()=>({textContent:'Emergency contact'}),parentElement:null};
+  const inEmergency=selector=>selector==='fieldset'?emergency:null;
+  const fields=[field('Full name'),field('Name',{},{closest:inEmergency}),field('Phone',{},{type:'tel',closest:inEmergency}),field('Full name',{},{name:'references[0][name]'}),field('Name',{},{name:'employer_name'}),field('Name',{autocomplete:'organization'}),field('Email',{'aria-describedby':'hint'}),field('Phone',{autocomplete:'section-emergency tel'})];
+  run(fields,{hint:{textContent:'Your referee will be contacted'}});
+  assert.deepEqual(fields.map(item=>item.value),[profile.name,'','','','','','','']);
+});
+test('social profile URLs never fall back to the personal website',()=>{
+  const fields=['LinkedIn Profile URL','LinkedIn URL (optional)','GitHub profile URL','Twitter URL','Other website','Personal website'].map(name=>field(name,{autocomplete:'url'},{type:'url'}));
+  run(fields);
+  assert.deepEqual(fields.map(item=>item.value),[profile.linkedin,profile.linkedin,profile.github,'','',profile.website]);
+});
+test('invisible and off-screen controls are skipped',()=>{
+  const fields=[field('Email',{},{checkVisibility:()=>false}),field('Email',{},{getBoundingClientRect:()=>({width:200,height:30,right:-9799,bottom:40})}),field('Email',{},{getBoundingClientRect:()=>({width:0,height:0,right:10,bottom:10})}),field('Email',{},{checkVisibility:()=>true,getBoundingClientRect:()=>({width:200,height:30,right:220,bottom:40})})];
+  run(fields);
+  assert.deepEqual(fields.map(item=>item.value),['','','',profile.email]);
+});
+test('common label variants and numeric postal codes are recognised',()=>{
+  const fields=[field('Full name ✱'),field('Mobile phone',{},{type:'tel'}),field('Preferred phone',{},{type:'tel'}),field('State/Province'),field('Zip/Postal code',{},{type:'number'}),field('Email:')];
+  run(fields);
+  assert.deepEqual(fields.map(item=>item.value),[profile.name,profile.phone,profile.phone,profile.state,profile.postalCode,profile.email]);
+});
