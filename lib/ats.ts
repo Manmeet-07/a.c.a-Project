@@ -11,11 +11,23 @@ const STOPWORDS = new Set(
   ).split(" ")
 );
 
+// Han/Kana text has no spaces between words, so runs of it become overlapping character bigrams.
+const CJK_RUN = /([\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\u30fc]+)/u;
+function splitCjk(token: string): string[] {
+  return token.split(CJK_RUN).flatMap((part, i) => {
+    const chars = Array.from(part);
+    if (i % 2 === 0 || chars.length < 3) return [part];
+    return chars.slice(1).map((char, j) => chars[j] + char);
+  });
+}
+
 function tokenize(text: string): string[] {
   return text
+    .normalize("NFC")
     .toLowerCase()
-    .replace(/[^a-z0-9+.# ]/g, " ")
+    .replace(/[^\p{L}\p{M}\p{N}+.#]+/gu, " ")
     .split(/\s+/)
+    .flatMap(splitCjk)
     .map(t => t.replace(/\.+$/, ""))
     .filter((t) => t.length > 1 && !STOPWORDS.has(t));
 }
@@ -150,23 +162,26 @@ export function generateSuggestions(
     );
   }
 
-  for (const missing of missingSkills.slice(0, 6)) {
+  // At most six adjacency tips; any skill without one (or past the cap) is still named in the next line.
+  const genuinelyMissing: string[] = [];
+  let adjacencyTips = 0;
+  for (const missing of missingSkills) {
     const adjacent = (ADJACENCY[missing.toLowerCase()] ?? []).filter((a) =>
       profileLower.has(a)
     );
-    if (adjacent.length > 0) {
+    if (adjacent.length > 0 && adjacencyTips < 6) {
+      adjacencyTips++;
       suggestions.push(
         `The listing asks for ${missing}, which isn't on your resume. Don't claim it. Instead, highlight your ${adjacent
           .slice(0, 2)
           .map((a) => displayName.get(a) ?? a)
           .join(" and ")} experience as related groundwork.`
       );
+    } else {
+      genuinelyMissing.push(missing);
     }
   }
 
-  const genuinelyMissing = missingSkills.filter(
-    (m) => !(ADJACENCY[m.toLowerCase()] ?? []).some((a) => profileLower.has(a))
-  );
   if (genuinelyMissing.length > 0) {
     suggestions.push(
       `No close match on your profile for: ${genuinelyMissing
@@ -175,13 +190,18 @@ export function generateSuggestions(
     );
   }
 
-  if (suggestions.length === 0) {
+  if (!matchedSkills.length && !missingSkills.length) {
+    // Nothing was found to "cover", so don't claim the resume covers it.
+    suggestions.push(
+      "No skills from our list appear in this listing, so the score compares wording only.",
+      "Focus on rewording your bullet points to use the listing's exact terms."
+    );
+  } else if (!missingSkills.length) {
     suggestions.push(
       "Your resume already covers the skills in this listing. Focus on rewording your bullet points to use the listing's exact terms."
     );
   }
 
-  if (!matchedSkills.length && !missingSkills.length) suggestions.unshift("No skills from our list appear in this listing, so the score compares wording only.");
   return suggestions;
 }
 

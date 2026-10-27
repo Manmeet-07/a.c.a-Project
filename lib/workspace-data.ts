@@ -127,9 +127,15 @@ export function sameJob(a: Application, b: Application) {
       normalize(a.job.title) === normalize(b.job.title),
   );
 }
-export function parseBackup(text: string): {
+export const MAX_APPLICATIONS = 400;
+// skipInvalid drops unreadable records instead of rejecting the whole backup.
+export function parseBackup(
+  text: string,
+  skipInvalid = false,
+): {
   profile: CandidateProfile | null;
   applications: Application[];
+  skipped: number;
 } {
   if (text.length > 10000000) throw new Error("Backup is too large");
   let parsed: unknown;
@@ -140,6 +146,8 @@ export function parseBackup(text: string): {
   }
   if (!isRecord(parsed) || parsed.version !== 1 || !isRecord(parsed.entries))
     throw new Error("Invalid backup format");
+  const entries = parsed.entries;
+  let skipped = 0;
   function decode(value: unknown): unknown {
     if (value == null) return null;
     if (typeof value !== "string") throw new Error("Invalid backup record");
@@ -150,16 +158,36 @@ export function parseBackup(text: string): {
     }
     return item;
   }
-  const profile = decode(parsed.entries["aca:profile"]);
-  const applications = decode(parsed.entries["aca:applications"]) ?? [];
+  function entry(key: string): unknown {
+    try {
+      return decode(entries[key]);
+    } catch (error) {
+      if (!skipInvalid) throw error;
+      skipped++;
+      return null;
+    }
+  }
+  let profile = entry("aca:profile");
+  let applications = entry("aca:applications") ?? [];
+  if (skipInvalid) {
+    if (profile !== null && !isProfile(profile)) {
+      profile = null;
+      skipped++;
+    }
+    if (Array.isArray(applications)) {
+      const valid = applications.filter(isApplication);
+      skipped += applications.length - valid.length;
+      applications = valid;
+    }
+  }
   if (
     (profile !== null && !isProfile(profile)) ||
     !Array.isArray(applications) ||
-    applications.length > 400 ||
+    applications.length > MAX_APPLICATIONS ||
     !applications.every(isApplication)
   )
     throw new Error(
       "Backup contains invalid records or more than 400 applications. Nothing was imported.",
     );
-  return { profile, applications };
+  return { profile, applications, skipped };
 }

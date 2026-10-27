@@ -35,6 +35,7 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
   const [error, setError] = useState<string | null>(null);
   const [useAI, setUseAI] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
 
   const [scoredJob, setScoredJob] = useState<JobInput | null>(null);
 
@@ -78,7 +79,8 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
   }
 
   async function handleSaveToTracker() {
-    if (!result || !scoredJob) return;
+    if (!result || !scoredJob || saving) return;
+    setSaving(true);
     const application: Application = {
       id: makeId(),
       job: { ...job, description: scoredJob.description },
@@ -90,9 +92,11 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
     try {
       await upsertApplication(application);
       setSaved(true);
-    } catch {
+    } catch (error) {
       setStatus("error");
-      setError("Could not save to your account. Check your connection and try again.");
+      setError(error instanceof Error ? error.message : "Could not save to your account. Check your connection and try again.");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -116,12 +120,14 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
           <label className="field"><span className="field-label">Company</span><input
             className="input"
             disabled={loading}
+            maxLength={500}
             value={job.company}
             onChange={(e) => { setJob({ ...job, company: e.target.value }); setSaved(false); }}
           /></label>
           <label className="field"><span className="field-label">Job title</span><input
             className="input"
             disabled={loading}
+            maxLength={500}
             value={job.title}
             onChange={(e) => { setJob({ ...job, title: e.target.value }); setSaved(false); }}
           /></label>
@@ -131,6 +137,7 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
           className="input"
           disabled={loading}
           type="url"
+          maxLength={2000}
           placeholder="https://"
           value={job.url}
           onChange={(e) => { setJob({ ...job, url: e.target.value }); setSaved(false); }}
@@ -217,7 +224,7 @@ export default function JobTailor({ onNavigate }: { onNavigate?: (tab: "profile"
               type="button"
               className="btn btn-secondary"
               onClick={handleSaveToTracker}
-              disabled={saved}
+              disabled={saved || saving}
             >
               {saved ? <><Icon name="check" />Saved to Applications</> : "Save to Applications"}
             </button>

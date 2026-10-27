@@ -55,12 +55,61 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
     Array.prototype.forEach.call(copy.querySelectorAll('input, textarea, select, button'), function(control) { control.remove(); });
     return copy.textContent || '';
   }
+  function clean(text) {
+    return text.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/\bgit hub\b/g, 'github').replace(/\blinked in\b/g, 'linkedin').replace(/[_\-\/\[\]]+/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  function idText(ids) {
+    return (ids || '').split(/\s+/).map(function(id) { var node = id && document.getElementById && document.getElementById(id); return node && node.textContent || ''; }).join(' ').trim();
+  }
   function fieldLabel(el) {
     var labels = el.labels ? Array.prototype.map.call(el.labels, labelText).filter(Boolean) : [];
     var parent = el.closest('label');
-    var labelledBy = (el.getAttribute('aria-labelledby') || '').split(/\s+/).map(function(id) { var node = document.getElementById && document.getElementById(id); return node && node.textContent || ''; }).join(' ').trim();
-    var text = el.getAttribute('aria-label') || labelledBy || labels[0] || labelText(parent) || el.placeholder || el.name || el.id || '';
-    return text.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().replace(/\bgit hub\b/g, 'github').replace(/\blinked in\b/g, 'linkedin').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').replace(/\s*(?:\*|\(required\)|:)\s*$/, '').trim();
+    var text = el.getAttribute('aria-label') || idText(el.getAttribute('aria-labelledby')) || labels[0] || labelText(parent) || el.placeholder || el.name || el.id || '';
+    // Trailing required/optional markers: "*", "✱", ":", "(required)", "(optional)".
+    return clean(text).replace(/(?:\s*(?:\((?:required|optional)\)|[^\p{L}\p{N}\s?)]))+$/u, '').trim();
+  }
+  // The chosen label alone ("Name") can't tell the candidate's fields from an
+  // emergency contact's, a reference's or an employer's, so also look at the
+  // field's name/id, autocomplete section, hint text and fieldset legends.
+  function fieldContext(el) {
+    var parts = [el.name, el.id, el.getAttribute('autocomplete'), idText(el.getAttribute('aria-describedby'))];
+    for (var set = el.closest('fieldset'); set; set = set.parentElement && set.parentElement.closest('fieldset')) {
+      var legend = set.querySelector(':scope > legend');
+      if (legend) parts.push(legend.textContent);
+    }
+    return clean(parts.filter(Boolean).join(' '));
+  }
+  // Nearest heading before the field, without leaving its form.
+  function sectionHeading(el) {
+    for (var node = el, depth = 0; node && node.tagName !== 'BODY' && depth < 8; node = node.parentElement, depth++) {
+      for (var sib = node.previousElementSibling; sib; sib = sib.previousElementSibling) {
+        if (/^H[1-6]$/.test(sib.tagName)) return sib.textContent || '';
+        var inner = sib.querySelectorAll('h1, h2, h3, h4, h5, h6');
+        if (inner.length) return inner[inner.length - 1].textContent || '';
+      }
+      if (node.tagName === 'FORM') break;
+    }
+    return '';
+  }
+  // Honeypots and controls hidden by visibility, opacity or off-screen
+  // positioning are not something the user can see or review.
+  function invisible(el) {
+    if (el.getClientRects && !el.getClientRects().length) return true;
+    if (el.checkVisibility) {
+      if (!el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true, opacityProperty: true, visibilityProperty: true })) return true;
+    } else if (window.getComputedStyle && el.nodeType === 1) {
+      var style = window.getComputedStyle(el);
+      if (style.visibility !== 'visible' || style.opacity === '0') return true;
+    }
+    if (!el.getBoundingClientRect) return false;
+    var box = el.getBoundingClientRect();
+    return box.width <= 1 || box.height <= 1 || box.right + (window.scrollX || 0) <= 0 || box.bottom + (window.scrollY || 0) <= 0;
+  }
+  function linkKind(label) {
+    var match = label.match(/\b(linkedin|github|portfolio)\b/);
+    if (!match) return null;
+    var rest = label.replace(match[0], '').replace(/\b(your|my|the|to|personal|public|profile|page|url|link|website|site|address|account|optional)\b/g, '');
+    return /[\p{L}\p{N}]/u.test(rest) ? null : match[1];
   }
 
   function shouldReplace(el, label) {
@@ -79,35 +128,38 @@ export function buildAutofillBookmarklet(profile: CandidateProfile): string {
   var filled = 0;
   fields.forEach(function (el) {
     var tag = el.tagName || 'INPUT';
-    if (tag === 'INPUT' && !/^(text|email|tel|url|search)?$/i.test(el.type)) return;
-    if (el.disabled || el.readOnly || (el.matches && el.matches(':disabled')) || (el.getClientRects && !el.getClientRects().length)) return;
+    if (tag === 'INPUT' && !/^(text|email|tel|url|search|number)?$/i.test(el.type)) return;
+    if (el.disabled || el.readOnly || (el.matches && el.matches(':disabled')) || invisible(el)) return;
     var label = fieldLabel(el);
-    if (label.length > 40 || /\?|company|employer|refer|emergency|school|university|username|security|password|start|\b(day|date)\b/.test(label)) return;
+    if (label.length > 40 || /\?|username|security|password|start|\b(day|date)\b/.test(label)) return;
+    if (/company|employer|organi[sz]ation|\brefer|emergency|school|university|college|guardian|next of kin|supervisor/.test(label + ' ' + fieldContext(el))) return;
+    // Headings get a narrower test: a page title like "Join our company" sits above every field.
+    if (/employer|\brefer|emergency|next of kin|guardian|supervisor/.test(clean(sectionHeading(el)))) return;
     if (!shouldReplace(el, label)) return;
     var field = null;
     var autocomplete = (el.getAttribute('autocomplete') || '').trim().split(/\s+/).pop();
+    if (/^organization/.test(autocomplete)) return;
     var standard = { 'given-name':'firstName', 'family-name':'lastName', name:'name', email:'email', tel:'phone', 'postal-code':'postalCode', 'address-level1':'state', 'address-level2':'city', 'street-address':'address', 'address-line1':'address', url:'website' };
-    // Generic autocomplete="url" must not turn a GitHub/LinkedIn field into
-    // the candidate's personal website.
-    var linkField = /^linkedin(?: (?:url|profile|website|link))?$/.test(label) ? 'linkedin' : /^github(?: (?:url|profile|website|link))?$/.test(label) ? 'github' : /^portfolio(?: (?:url|website|link))?$/.test(label) ? 'portfolio' : null;
-    if (linkField && (!autocomplete || autocomplete === 'url')) field = linkField;
-    else if (standard[autocomplete]) field = standard[autocomplete];
+    // Generic autocomplete="url" must not turn a GitHub/LinkedIn/Twitter
+    // field into the candidate's personal website.
+    var linkField = linkKind(label);
+    var otherSite = /\b(linkedin|github|gitlab|bitbucket|twitter|x|facebook|instagram|threads|mastodon|dribbble|behance|medium|youtube|tiktok|kaggle|stack ?overflow|social|other)\b/.test(label);
+    if (linkField && (!standard[autocomplete] || autocomplete === 'url')) field = linkField;
+    else if (standard[autocomplete] && !(autocomplete === 'url' && otherSite)) field = standard[autocomplete];
     else if (/^(legal )?first name$/.test(label)) field = 'firstName';
     else if (/^(legal )?(last name|surname|family name)$/.test(label)) field = 'lastName';
     else if (/^(legal |full |your )?name$/.test(label)) field = 'name';
     else if (/^(e ?mail|email address)$/.test(label)) field = 'email';
-    else if (/^(phone|mobile|telephone|tel)( number)?$/.test(label)) field = 'phone';
+    else if (/^((mobile|cell|cellular|primary|preferred|home|personal) )?(phone|mobile|telephone|tel|cell)( number)?$|^contact number$/.test(label)) field = 'phone';
     else if (/^(street address|address|address line 1)$/.test(label)) field = 'address';
     else if (/^city$/.test(label)) field = 'city';
-    else if (/^(state|province|state province|state or region)$/.test(label)) field = 'state';
-    else if (/^(zip|zip code|postal code|zip \/ postal code)$/.test(label)) field = 'postalCode';
-    else if (/^linkedin( url| profile)?$/.test(label)) field = 'linkedin';
-    else if (/^github( url| profile)?$/.test(label)) field = 'github';
-    else if (/^portfolio( url)?$/.test(label)) field = 'portfolio';
+    else if (/^(state|province|region|state (or )?(province|region)|province (or )?state)$/.test(label)) field = 'state';
+    else if (/^(zip|postcode|post code|(zip |postal |zip postal |postal zip )code)$/.test(label)) field = 'postalCode';
     else if (/^(website|personal website|website url)$/.test(label)) field = 'website';
     if (el.type === 'email' && field !== 'email') return;
     if (el.type === 'tel' && field !== 'phone') return;
     if (el.type === 'url' && !/^(website|portfolio|linkedin|github)$/.test(field || '')) return;
+    if (el.type === 'number' && (field !== 'postalCode' || !/^\d+$/.test(data.postalCode))) return;
     if (tag === 'TEXTAREA' && field !== 'address') return;
     if (tag === 'SELECT' && !/^(state|city)$/.test(field || '')) return;
     var value = field && data[field];
