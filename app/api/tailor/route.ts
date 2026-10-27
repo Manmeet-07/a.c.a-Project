@@ -45,7 +45,8 @@ export async function POST(req: NextRequest) {
   const resumeText = body.resumeText.slice(0, MAX_RESUME_CHARS).trim();
   const jobDescription = (body.jobDescription ?? "").trim();
   const vocabulary = new Set(SKILL_DEFINITIONS.map(skill => skill.canonical));
-  const profileSkills = [...new Set([...extractSkills(resumeText), ...(body.profileSkills || []).filter(skill => vocabulary.has(skill))])];
+  // The profile editor's list is authoritative, so deleted skills stay deleted.
+  const profileSkills = body.profileSkills ? [...new Set(body.profileSkills.filter(skill => vocabulary.has(skill)))] : extractSkills(resumeText);
 
   if (!resumeText) {
     return NextResponse.json(

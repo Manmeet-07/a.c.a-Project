@@ -110,21 +110,59 @@ export const SKILL_DEFINITIONS: SkillDefinition[] = [
 
 // Ambiguous words require a technical list/context, not ordinary prose.
 const AMBIGUOUS = new Set(["C", "R", "Go", "Express", "Swift", "Spark", "REST", "ML", "TS", "JS"]);
-function matches(text: string, needle: string): boolean {
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const tail = needle === "C" ? "(?![a-zA-Z0-9+#])" : needle === "R" ? "(?![a-zA-Z0-9&])" : "(?![a-zA-Z0-9])";
-  const pattern = new RegExp(`(?<![a-zA-Z0-9])${escaped}${tail}`, AMBIGUOUS.has(needle) ? "" : "i");
-  if (!AMBIGUOUS.has(needle)) return pattern.test(text);
-  return text.split(/\n/).some(line => pattern.test(line) && (
-    /^\s*(skills|technologies|languages|stack)\s*:/i.test(line) ||
-    /^\s*[\w.+#/-]+(?:\s*[,|]\s*[\w.+#/-]+)+\s*$/.test(line) ||
-    new RegExp(`${escaped}\\s+(programming|language|developer|development|framework|API)\\b`).test(line)
-  ));
+// Everyday words and names ("react quickly", "Ruby Jenkins") count in prose only when capitalised.
+const CASED = new Set(["React", "Rust", "Ruby", "Angular", "Jenkins", "Bash", "Flask", "Azure", "Svelte", "Tailwind", "Jest"]);
+export const JOB_TITLE = /\b(?:Engineer|Developer|Programmer|Scientist|Manager|Analyst|Designer|Architect|Consultant|Specialist|Director|Administrator|Intern)s?\b/i;
+const BULLET = /^\s*[-–•*·▪◦‣●]\s*/;
+const HEADING = /^([\p{L}&/]+(?:\s+[\p{L}&/]+){0,3})\s*:\s*/u;
+const SKILL_HEADING = /\b(?:skills|technologies|languages|stack|tools|frameworks)\b/i;
+const NAME_LIKE = /^\p{Lu}[\p{L}\p{M}'’.-]*(?:\s+\p{Lu}[\p{L}\p{M}'’.-]*){1,3}$/u;
+const NEEDLES = SKILL_DEFINITIONS.flatMap(skill => [skill.canonical, ...(skill.aliases || [])]);
+// Longest first, so "Tailwind CSS" or "GitHub Actions" do not also count as CSS or GitHub.
+const MULTI_WORD = NEEDLES.filter(needle => needle.includes(" ")).sort((a, b) => b.length - a.length);
+const patterns = new Map<string, RegExp>();
+function pattern(needle: string, flags: string): RegExp {
+  const key = `${flags}:${needle}`;
+  if (!patterns.has(key)) {
+    const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    // Ambiguous words joined by a hyphen are prose ("Go-to-market", "C-suite", "Objective-C").
+    const head = AMBIGUOUS.has(needle) ? "(?<![a-zA-Z0-9-])" : "(?<![a-zA-Z0-9])";
+    const tail = needle === "C" ? "(?![a-zA-Z0-9+#-])" : needle === "R" ? "(?![a-zA-Z0-9&-])" : AMBIGUOUS.has(needle) ? "(?![a-zA-Z0-9-])" : "(?![a-zA-Z0-9])";
+    patterns.set(key, new RegExp(`${head}${escaped}${tail}${flags.includes("q") ? "\\s+(?:programming|language|developer|development|framework|API)\\b" : ""}`, flags.replace("q", "")));
+  }
+  return patterns.get(key)!;
+}
+function mask(text: string): string {
+  return MULTI_WORD.reduce((masked, needle) => masked.replace(pattern(needle, "gi"), match => " ".repeat(match.length)), text);
+}
+function listItems(line: string): string[] {
+  return line.split(/\s*[,|;•·]\s*|\s+(?:and|&)\s+/).map(item => item.replace(/\s*\([^)]*\)$/, "").replace(/[.;:]+$/, "").trim()).filter(Boolean);
+}
+function found(text: string, masked: string, needle: string): boolean {
+  if (needle.includes(" ")) return pattern(needle, "i").test(text);
+  const cased = CASED.has(needle);
+  if (!cased && !AMBIGUOUS.has(needle)) return pattern(needle, "i").test(masked);
+  const same = (value: string) => cased ? value.toLowerCase() === needle.toLowerCase() : value === needle;
+  return masked.split(/\n/).some((line, index) => {
+    let rest = line.replace(BULLET, "");
+    const heading = rest.match(HEADING);
+    if (heading && SKILL_HEADING.test(heading[1])) return pattern(needle, cased ? "i" : "").test(rest);
+    if (heading) rest = rest.slice(heading[0].length);
+    const items = listItems(rest);
+    if (items.some(item => item.split("/").some(same))) return true;
+    if (!cased) return pattern(needle, "q").test(line);
+    // A capitalised word in a header item like "Ruby Jenkins" is the applicant's name.
+    return items.some(item => pattern(needle, "").test(item) && !(index < 5 && NAME_LIKE.test(item) && !JOB_TITLE.test(item)));
+  });
+}
+function mentions(text: string, masked: string, canonical: string): boolean {
+  const definition = SKILL_DEFINITIONS.find(skill => skill.canonical === canonical);
+  return Boolean(definition && [definition.canonical, ...(definition.aliases || [])].some(needle => found(text, masked, needle)));
 }
 export function mentionsSkill(text: string, canonical: string): boolean {
-  const definition = SKILL_DEFINITIONS.find(skill => skill.canonical === canonical);
-  return Boolean(definition && [definition.canonical, ...(definition.aliases || [])].some(needle => matches(text, needle)));
+  return mentions(text, mask(text), canonical);
 }
 export function extractSkills(text: string): string[] {
-  return SKILL_DEFINITIONS.filter(skill => mentionsSkill(text, skill.canonical)).map(skill => skill.canonical).sort();
+  const masked = mask(text);
+  return SKILL_DEFINITIONS.filter(skill => mentions(text, masked, skill.canonical)).map(skill => skill.canonical).sort();
 }
