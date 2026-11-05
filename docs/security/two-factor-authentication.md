@@ -20,9 +20,11 @@ signs the user out afterward. Existing users are not enrolled automatically.
 
 ## Backend configuration
 
-The existing project `aca-career-2026-mm07` already uses Identity Platform.
-Optional TOTP MFA is enabled; billing and SMS were not enabled for this change.
-The desired Identity Toolkit `mfa` configuration is in `config/firebase-mfa.json`:
+The setup recorded on 2026-10-21 for `aca-career-2026-mm07` used Identity Platform
+with optional TOTP MFA. Billing and SMS were not enabled by that implementation.
+Verify the selected project's live settings before a new installation or release.
+The desired Identity Toolkit `mfa` configuration is in
+[`config/firebase-mfa.json`](../../config/firebase-mfa.json):
 optional enrollment, TOTP enabled, and one adjacent 30-second interval for clock
 drift. Apply it using the authorized Admin API with `updateMask=mfa`, preserving
 other configured providers. `firebase deploy --only auth` does not provision this

@@ -47,10 +47,11 @@ cloud integration, or test automation.
   explainable job matching, and persistent application tracking on Vercel.
 - Integrated Firebase email/Google authentication, optional TOTP two-factor
   authentication, and UID-scoped Firestore authorization with cross-account tests.
-- Added end-to-end verification of 13 contact-field autofill targets in a React
-  form while preserving 14 protected controls and preventing automatic submission.
+- Added end-to-end verification of 19 contact controls across 13 profile fields
+  in a React form while preserving 25 protected controls and preventing automatic submission.
 - Added bounded worker-based PDF processing and automated security/reliability
-  checks, including 48 regression tests and Firebase emulator browser workflows.
+  checks, including parsing, matching, storage, authentication, and Firebase
+  emulator browser workflows.
 
 These counts describe the current test suite and synthetic fixtures. They are
 not user-growth metrics or a claim that every real job site is supported. Replace
@@ -88,4 +89,7 @@ not user-growth metrics or a claim that every real job site is supported. Replac
 
 Keep the difference between **what you built**, **what a managed service supplies**,
 **what you verified**, and **what remains planned** clear throughout the interview.
-The current evidence and limitations are in [ACA_AUDIT_REPORT.md](../security/audit-2026-10-21.md).
+The [2026-10-21 audit](../security/audit-2026-10-21.md) preserves the assessment
+for that changeset. Use the [current README](../../README.md) and
+[testing matrix](../testing/README.md) when discussing today's implementation
+and verification commands; do not present historical counts as fresh results.

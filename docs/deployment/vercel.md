@@ -1,4 +1,9 @@
-# Deployment and audit remediation
+# Vercel deployment and operations
+
+Use the [README](../../README.md) for local startup and the
+[environment reference](../reference/environment.md) for variable definitions.
+This guide describes deployment requirements; it does not provision external
+accounts or certify their live settings.
 
 ## Vercel deployment
 
@@ -6,7 +11,9 @@ Keep `vercel.json` in the repository root. It explicitly selects the Next.js fra
 
 Use root directory `.`, production branch `main`, and leave the Output Directory override unset. After a deployment, verify `/`, `/app`, and `/api/health` on the production domain; a Ready status alone does not verify routing. The function duration settings allow PDF parsing and tailoring to finish within their application budgets. Deployment uploads exclude local environment files, generated builds, logs, and test artifacts.
 
-Use Node 22, `npm ci`, and `npm run build`. Next and its ESLint configuration are pinned together. Fonts use the operating system stack, so builds do not fetch Google Fonts.
+Use Node 22, `npm ci`, and `npm run build`. Next and its ESLint configuration are
+pinned together. Font assets are supplied through the installed Geist and
+Instrument Serif packages rather than a required Google Fonts network fetch.
 
 ## Required before enabling paid AI
 
@@ -15,14 +22,21 @@ The default installation provides local suggestions and never calls Anthropic. T
 | Variable | Meaning |
 | --- | --- |
 | `ANTHROPIC_API_KEY` | Restricted Anthropic workspace key |
-| `ANTHROPIC_MODEL` | Current model ID; defaults to `claude-haiku-5-5` |
+| `ANTHROPIC_MODEL` | Provider model ID; the application defaults to `claude-haiku-5-5`, subject to actual provider access |
 | `SESSION_SECRET` | Random secret of at least 32 characters, shared by all instances |
 | `APP_ORIGINS` | Comma-separated exact HTTPS origins, without trailing slashes |
 | `REDIS_REST_URL` | HTTPS Redis REST endpoint supporting GET, SET, DEL, EVAL (`UPSTASH_REDIS_REST_URL` or `KV_REST_API_URL` also accepted) |
 | `REDIS_REST_TOKEN` | Credential scoped to that store (`UPSTASH_REDIS_REST_TOKEN` or `KV_REST_API_TOKEN` also accepted) |
 | `AI_DAILY_CALL_LIMIT` | Maximum reserved provider attempts per UTC day; default 100, 0 disables calls |
 
-AI requires explicit consent on each analysis and a signed, one-hour, HttpOnly, SameSite=Strict visitor session. These are anonymous visitor sessions, not verified accounts. Each session can reserve ten analyses per rolling idle hour. A visitor can clear cookies; the atomic global daily budget remains the cost backstop. Add identity-based authentication if the service needs a per-person allowance. Rate-limit session creation and API traffic at your trusted edge/WAF; do not trust arbitrary client-supplied forwarding headers.
+Processing APIs independently require a verified Firebase identity. Paid AI also
+requires explicit consent and a signed, one-hour, HttpOnly, SameSite=Strict
+visitor cookie. That cookie is an additional budget-control mechanism, not a
+replacement for account authentication. Each session can reserve ten analyses
+per rolling idle hour. Clearing cookies can reset that session allowance; the
+atomic global daily budget remains the cost backstop. A strict per-person quota
+would need counters bound to verified identity. Rate-limit session creation and
+API traffic at the trusted edge/WAF rather than trusting arbitrary forwarding headers.
 
 Redis failure disables paid AI. The budget is reserved atomically before calling the provider, including three attempts per analysis to cover the SDK's two retries; failed calls do not refund budget. The default therefore permits at most 33 new analyses per UTC day. Each attempt has at most 3,000 output tokens and bounded input. This is an attempt ceiling, not a dollar-denominated billing cap. **Set the Anthropic workspace spend limit in its console before enabling the key.** Actual account limits require account access and are not set by source code.
 
@@ -48,18 +62,43 @@ Import the repository as a Next.js project; the default build command and Node 2
 
 ## Browser data
 
-Workspace data is now private to a verified Firebase account, with live Firestore synchronization and transactional tracker updates. Session-only authentication and memory-only Firestore caching clear the workspace on sign-out. Legacy browser data is imported only after explicit confirmation; the original browser copy is retained. Users can export private JSON backups, merge imports, and export a pre-import recovery snapshot until reload/sign-out. See [FIREBASE_SETUP.md](../getting-started/firebase.md) for account configuration, database rules, and tests. Contact extraction favors US layouts; the profile editor supports manual corrections and international names/phone/address text.
+Workspace data is private to a verified Firebase account, with live Firestore
+synchronization and transactional tracker updates. Session-only authentication
+and memory-only Firestore caching clear the workspace on sign-out. Legacy data
+is imported only after explicit confirmation; its original browser copy is
+retained. Users can export private JSON backups and import validated data with
+a pre-import recovery snapshot. See [Firebase setup](../getting-started/firebase.md)
+for account configuration and rules. Parsing favors recognizable resume layouts;
+the editor supports manual corrections.
 
 ## Verification
 
 CI installs from the lockfile, lints, typechecks, runs regression tests, audits production dependencies, builds, and checks the production authentication boundary. Java 21+ enables adversarial Firestore rule tests and the full authenticated browser flow against local Auth/Firestore emulators. Each browser test starts/stops its own server on a free port. Set `PLAYWRIGHT_EXECUTABLE_PATH` to an installed Chromium browser, or run `npx playwright install chromium`.
 
-On a Windows sandbox that cannot create Turbopack junctions, use `NEXT_BUILD_DIR=.next-verify` with `next build --webpack`, then keep that environment variable for the browser test. The alternate directory preserves existing build artifacts; normal builds clean `.next`.
+For Windows build-directory guidance and the full coverage matrix, see the
+[testing guide](../testing/README.md). Stop development browser harnesses before
+building; do not reuse stale route artifacts after a route move.
 
 ## Tracked upstream dependency exception
 
-As checked on 2026-10-16, production `npm audit --omit=dev` is clean. Full audit reports the dev-only braces → micromatch → fast-glob → Next ESLint chain (GHSA-vfj7-8cjw-p6xm). The latest published `braces` is 3.0.3, still affected; there is no safe patched-version override. Do not downgrade Next ESLint to 14 to suppress the report. Lint only repository-controlled paths and patterns, keep this exception visible, and remove it when an upstream patched release is available. CI enforces the production audit; full audit must still be reviewed during dependency updates.
+The [dated remediation audit](../archive/pre-production-audit-2026-10-16.md)
+records the development-only braces/micromatch/fast-glob/Next ESLint advisory
+chain, [GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm).
+Those results are historical. Run `npm audit --omit=dev` and review the full audit
+when preparing a release or updating dependencies. Do not blindly downgrade
+Next's ESLint configuration to silence a finding; maintain framework/tooling
+compatibility and assess the actual affected dependency paths.
 
-## Branch consolidation
+## Release checklist
 
-The audit branch started one documentation commit ahead of `main`. Keep all fixes together on that branch, review the PR and green CI, then merge into `main`. Delete the source branch only after the merge is confirmed and no unique commits remain. Configure `main` as the deployment branch and require CI before merging.
+| Check | Expected evidence |
+| --- | --- |
+| Build | Install from the lockfile; production build and PDF packaging check pass. |
+| Identity and data | Verify exact authorized domains, provider configuration, matching project IDs, and deployed Firestore rules. |
+| Smoke test | Open `/`, verify the signed-out `/app` boundary, and check `/api/health`; use a synthetic resume for an authorized signed-in test. |
+| Optional AI | Confirm consent, shared guards, provider access, fallback behavior, and provider-side spend limits before enabling paid calls. |
+| Operations | Exercise alert delivery, restore/rollback procedures, and expected traffic limits. |
+| Repository settings | Confirm the intended production branch and required checks in GitHub/Vercel; the workflow file alone does not enforce branch protection. |
+
+Use the [production-readiness checklist](../security/production-readiness.md) and
+[contribution guide](../../CONTRIBUTING.md) for the broader launch/review process.

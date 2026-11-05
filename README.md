@@ -10,7 +10,7 @@ forms. Users review the information and submit applications themselves.
 
 [Live application](https://aca-lemon.vercel.app) · [Documentation](docs/README.md) ·
 [Firebase setup](docs/getting-started/firebase.md) · [Deployment](docs/deployment/vercel.md) ·
-[Project presentation](docs/project/recruiter-guide.md)
+[Contributing](CONTRIBUTING.md) · [Project presentation](docs/project/recruiter-guide.md)
 
 > **Project status: working beta.** Core workflows have automated coverage.
 > Broader launch requirements and test limitations are documented in the
@@ -78,6 +78,7 @@ flowchart LR
 
 The UI, server APIs, and PDF worker are maintained in one repository. Firebase
 supplies identity and database services; Vercel hosts the Next.js application.
+See the [architecture guide](docs/architecture.md) for the route matrix and data lifecycle.
 
 ## Run locally
 
@@ -123,6 +124,8 @@ Fill the values in `.env.local` from your Firebase web app configuration:
 The `NEXT_PUBLIC_*` values are public web configuration. Authorization is enforced
 by signed tokens and database rules. Keep private keys, passwords, and server
 credentials out of source control. `.env.local` is ignored by Git.
+The [environment reference](docs/reference/environment.md) covers optional AI
+services, supported aliases, and emulator/build-only settings.
 
 Follow [Firebase setup](docs/getting-started/firebase.md) for provider/domain/rule
 configuration and [two-factor setup](docs/security/two-factor-authentication.md)
@@ -181,6 +184,8 @@ CI follows [`.github/workflows/ci.yml`](.github/workflows/ci.yml). Emulator suit
 use the `demo-aca` project. Real TOTP lifecycle checks are separately authorized
 operator tests, not unattended CI; see the
 [MFA verification boundaries](docs/security/two-factor-authentication.md#verification).
+The [detailed testing matrix](docs/testing/README.md) maps each feature to its
+regression, browser, rules, and manual verification boundaries.
 
 ## Repository structure
 
@@ -229,10 +234,14 @@ Historical audit counts are dated evidence, not current security certification.
 | Resource | Contents |
 | --- | --- |
 | [Documentation index](docs/README.md) | Reading paths and current versus historical records. |
+| [Contribution guide](CONTRIBUTING.md) | Change workflow, review expectations, and relevant checks. |
+| [Architecture](docs/architecture.md) | Component responsibilities, route matrix, and data lifecycle. |
+| [Environment reference](docs/reference/environment.md) | Required configuration, optional AI, and test-only variables. |
 | [Firebase setup](docs/getting-started/firebase.md) | Accounts, configuration, database rules, and emulator usage. |
 | [Deployment guide](docs/deployment/vercel.md) | Vercel, optional AI, hosting limits, and monitoring. |
 | [Two-factor authentication](docs/security/two-factor-authentication.md) | Setup, required challenges, recovery, and test coverage. |
 | [Production readiness](docs/security/production-readiness.md) | Operational launch checklist. |
 | [Fill-Assist verification](docs/testing/fill-assist.md) | Supported fields, protected controls, and browser-test boundaries. |
+| [Testing matrix](docs/testing/README.md) | Suite selection, prerequisites, coverage, and manual boundaries. |
 | [Recruiter guide](docs/project/recruiter-guide.md) | Project pitch, defensible resume bullets, and interview discussion. |
 | [Historical records](docs/archive/README.md) | Preserved early plans and dated test/audit reports. |

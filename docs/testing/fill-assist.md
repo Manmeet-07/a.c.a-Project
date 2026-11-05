@@ -17,6 +17,11 @@ It reads the actual Fill-Assist code produced by the UI and runs it on a separat
 origin serving a React-controlled application form. React's state and every
 filled DOM value must agree, so a visual-only change cannot pass.
 
+The current fixture contains **19 contact controls representing 13 profile
+fields**. Additional controls exercise required/optional markers, mobile-phone
+labels, province labels, numeric postal inputs, and social-profile variants.
+Expected values are synthetic; the test does not contact an employer site.
+
 | Contact field | Expected synthetic value |
 | --- | --- |
 | First name | Maya |
@@ -39,10 +44,12 @@ Specific social-link labels take priority over generic `autocomplete="url"`.
 State options match abbreviations or full US state names without assuming the
 site's internal option value. Other region names match exactly.
 
-Fourteen protected controls must remain unchanged: pre-filled email and name,
-read-only/disabled controls, a control inside a disabled fieldset, a CSS-hidden
-contact, a screening textarea, company, country, password, a multiple select,
-hidden input, file upload, and work-authorization checkbox. No form submission
+Twenty-five protected controls must remain unchanged. These include pre-filled
+email/name, read-only and disabled controls, an inherited disabled fieldset,
+CSS-hidden/invisible/transparent/off-screen contacts, screening responses,
+company/organization/reference/employer/emergency-contact fields, unsupported
+social links, country, password, a multiple select, hidden input, file upload,
+and work-authorization checkbox. No form submission
 or submission request may occur. On a second run, cleared contacts refill and
 user-edited values remain intact.
 

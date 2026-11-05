@@ -9,10 +9,14 @@ guides and dated engineering records.
 | Audience | Start here | Purpose |
 | --- | --- | --- |
 | Developers | [Firebase setup](getting-started/firebase.md) | Configure identity, private data, domains, and local verification. |
+| New contributors | [Contribution guide](../CONTRIBUTING.md) | Follow the change workflow and choose relevant checks. |
+| Application reviewers | [Architecture](architecture.md) | Understand routes, components, data flow, and trust boundaries. |
+| Configuration owners | [Environment reference](reference/environment.md) | Separate required public configuration, server secrets, and test-only values. |
 | Deployment operators | [Vercel deployment](deployment/vercel.md) | Configure hosting, optional AI services, limits, and monitoring. |
 | Security reviewers | [Two-factor authentication](security/two-factor-authentication.md) | Understand enrollment, sign-in challenges, recovery, and test boundaries. |
 | Release owners | [Production readiness](security/production-readiness.md) | Review the launch checklist and unresolved operational work. |
-| Testers | [Fill-Assist verification](testing/fill-assist.md) | Reproduce the resume-to-form browser flow and understand coverage. |
+| Testers | [Verification matrix](testing/README.md) | Choose suites, prerequisites, and manual follow-up checks. |
+| Form-integration reviewers | [Fill-Assist verification](testing/fill-assist.md) | Reproduce the resume-to-form browser flow and understand coverage. |
 | Recruiters and candidates | [Project presentation guide](project/recruiter-guide.md) | Prepare a project pitch, demonstration, and technical discussion. |
 
 ## Dated assessments

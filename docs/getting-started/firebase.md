@@ -2,7 +2,9 @@
 
 ACA stays on Vercel. Firebase Authentication manages email/password and Google accounts;
 Standard Cloud Firestore in `us-east4` stores each verified user's private data.
-The Firebase project is `aca-career-2026-mm07` (ACA Career), on the free plan.
+The checked-in deployment project is `aca-career-2026-mm07` (ACA Career).
+Forks and new installations should select their own project and verify its
+current plan/quotas rather than treating repository configuration as billing evidence.
 
 ## User flow
 
@@ -14,7 +16,7 @@ the workspace snapshots; authentication persists for the browser session.
 Optional authenticator-app two-factor authentication is offered immediately after
 a verified sign-in, before opening the workspace, with **Set up 2FA** and **Not
 now** choices. It remains available from the workspace's **Security** link.
-See [TWO_FACTOR_AUTH.md](../security/two-factor-authentication.md) for
+See [two-factor authentication](../security/two-factor-authentication.md) for
 setup, project configuration, recovery limitations, and verification details.
 
 Both account screens offer **Continue with Google** using Firebase's popup flow.
@@ -29,10 +31,10 @@ verified-email claim. A client-provided UID is never an authorization source.
 Server verification uses public signing certificates and the project ID; do not
 add service-account private keys to this application or to GitHub.
 
-Firebase Admin is pinned to 13.10.0 for Vercel compatibility. Its 14.5.0
-dependency chain requires loading ESM through CommonJS, which fails in Vercel's
-Node 24 runtime with `ERR_REQUIRE_ESM`. A regression test disables that Node
-feature and imports the real verifier. Keep this test when upgrading the SDK.
+Firebase Admin is pinned to 13.10.0 for the repository's tested Vercel import
+compatibility. A regression test disables Node's experimental CommonJS-to-ESM
+loading and imports the real verifier. Keep this test when upgrading the SDK;
+do not assume a dependency update preserves the deployment's import behavior.
 The dependency overrides pin patched UUID 11.1.1 and gRPC 1.14.6 versions;
 the emulator flow exercises the resulting auth and database dependency chain.
 
@@ -44,16 +46,19 @@ Configure those same five variables on Vercel's production environment. The four
 build time; changing them requires a new build. `FIREBASE_PROJECT_ID` must match.
 With missing configuration, sign-in and workspace access stay disabled.
 
-The checked-in `firebase.json` enables email/password and Google auth and lists authorized
-domains. Provision changes using your signed-in Firebase CLI:
+The checked-in `firebase.json` declares email/password and Google providers and
+the expected authorized domains. Deployment mutates the selected Firebase
+project. After choosing and configuring your project, replace `YOUR_PROJECT_ID`
+below and use your signed-in Firebase CLI:
 
 ```powershell
-npx -y firebase-tools@latest deploy --only firestore,auth --project aca-career-2026-mm07
+npx -y firebase-tools@latest deploy --only firestore,auth --project YOUR_PROJECT_ID
 ```
 
 This deploys the database rules and indexes as well as the auth configuration.
 It does not deploy website hosting. Keep provider credentials and login codes
-out of source control and logs. No billing account or paid-plan upgrade is set up.
+out of source control and logs. This command does not request a paid-plan upgrade;
+verify account-level billing separately.
 
 For an auth-only change, deploy `--only auth`. Google provisioning uses the
 project owner's support email in `firebase.json`. The site security policy allows
@@ -61,8 +66,9 @@ only its configured Firebase auth domain as the external sign-in frame. Producti
 web config must keep `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` set to the Firebase Hosting
 auth domain, rather than the Vercel website domain.
 
-The current Firebase CLI provisions providers but does not synchronize the
-`authorizedDomains` array. Keep the listed exact domains in Firebase Console →
+Verify the live domain allowlist after provisioning. The CLI used for the
+recorded setup provisioned providers without synchronizing `authorizedDomains`.
+Keep the required exact domains in Firebase Console →
 Authentication → Settings → Authorized domains (or update that field with the
 Identity Toolkit Admin API), preserving any existing domains. Both ACA production
 domains and the local development hosts were added to the live project when

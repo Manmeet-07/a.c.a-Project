@@ -1,6 +1,6 @@
 # Production readiness
 
-Assessment date: 2026-10-21. Current classification: working beta for a limited
+Assessment date: 2026-10-21. Recorded classification: working beta for a limited
 audience, pending operational verification before a wider public launch.
 
 Production ready means the application meets defined expectations for security,
@@ -30,16 +30,19 @@ intended audience. A successful deployment or test run alone is insufficient.
 | Monitoring and support | Confirm uptime/error alerts reach an accountable operator and test their delivery. Repository logging does not prove external alerts are configured. |
 | Recovery | Define backup retention and a recovery target; demonstrate restoring Firestore data in an isolated environment. User JSON exports are not an operator disaster-recovery plan. |
 | Privacy and account lifecycle | Publish a privacy notice and implement/test an account-and-data deletion workflow. Current sign-out and application deletion do not delete an entire account. |
-| Capacity and cost | Validate expected concurrent traffic and edge/WAF limits. Before enabling paid AI, confirm live Redis guards, provider access, and provider-side spend limits described in DEPLOYMENT.md. |
+| Capacity and cost | Validate expected concurrent traffic and edge/WAF limits. Before enabling paid AI, confirm live Redis guards, provider access, and provider-side spend limits described in the [deployment guide](../deployment/vercel.md). |
 | Release process | Confirm branch protection, required CI checks, and a tested rollback procedure. The workflow file alone does not prove repository protections are enabled. |
 
 Google sign-in uses the same Firebase UID model, token validation, and workspace
 rules; it does not replace these checks. A real Google account password is never
 entered into ACA or an automated test.
 
-See FIREBASE_SETUP.md for configuration and test instructions, DEPLOYMENT.md for
-hosting/AI safeguards, and PRE_PROD_AUDIT.md for historical findings and their
+See [Firebase setup](../getting-started/firebase.md) for configuration and test instructions,
+[deployment](../deployment/vercel.md) for hosting/AI safeguards, and the
+[historical remediation audit](../archive/pre-production-audit-2026-10-16.md) for findings and their
 remediation status. Historical test and audit counts are dated evidence, not a
 current security certification.
-The current feature inventory, test record, and prioritized findings are in
-[ACA_AUDIT_REPORT.md](audit-2026-10-21.md).
+The dated feature inventory, test record, and prioritized findings are in the
+[2026-10-21 audit](audit-2026-10-21.md). Use the [README](../../README.md) and
+[testing matrix](../testing/README.md) for the current repository's capabilities
+and verification commands. This documentation refresh is not a new operational audit.
