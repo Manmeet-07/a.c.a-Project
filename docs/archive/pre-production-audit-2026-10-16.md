@@ -1,6 +1,10 @@
 # Pre-Production Audit Report: Autonomous Career Agent
 
-> Remediation update (2026-10-16): the findings below retain their original reproduction details. Status entries describe the source changes. Production enablement still requires the account/hosting actions in [DEPLOYMENT.md](DEPLOYMENT.md); L-02 retains an explicit upstream exception. AI provider calls were mocked in tests, not billed against a live key.
+> Historical record. This dated report is preserved for traceability; its test
+> counts, reproduction commands, and feature descriptions are not a current
+> certification. Use the [project README](../../README.md) for current setup and scope.
+
+> Remediation update (2026-10-16): the findings below retain their original reproduction details. Status entries describe the source changes. Production enablement still requires the account/hosting actions in [DEPLOYMENT.md](../deployment/vercel.md); L-02 retains an explicit upstream exception. AI provider calls were mocked in tests, not billed against a live key.
 
 > Verification: 18 regression tests, ESLint, TypeScript, production Webpack build, and Chromium upload → tailor → track flow. Production dependency audit: zero vulnerabilities. Full dev audit: five findings in the same unpatched braces chain. The local Windows sandbox cannot create Turbopack junctions; CI verifies the normal build on Linux.
 

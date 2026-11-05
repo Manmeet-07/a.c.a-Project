@@ -42,4 +42,4 @@ hosting/AI safeguards, and PRE_PROD_AUDIT.md for historical findings and their
 remediation status. Historical test and audit counts are dated evidence, not a
 current security certification.
 The current feature inventory, test record, and prioritized findings are in
-[ACA_AUDIT_REPORT.md](ACA_AUDIT_REPORT.md).
+[ACA_AUDIT_REPORT.md](audit-2026-10-21.md).

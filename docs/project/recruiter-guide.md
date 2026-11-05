@@ -88,4 +88,4 @@ not user-growth metrics or a claim that every real job site is supported. Replac
 
 Keep the difference between **what you built**, **what a managed service supplies**,
 **what you verified**, and **what remains planned** clear throughout the interview.
-The current evidence and limitations are in [ACA_AUDIT_REPORT.md](ACA_AUDIT_REPORT.md).
+The current evidence and limitations are in [ACA_AUDIT_REPORT.md](../security/audit-2026-10-21.md).

@@ -1,5 +1,9 @@
 # ACA codebase review and development plan
 
+> Historical record. This dated report is preserved for traceability; its test
+> counts, reproduction commands, and feature descriptions are not a current
+> certification. Use the [project README](../../README.md) for current setup and scope.
+
 Reviewed 2026-10-15. No commits, pushes, or deployments were performed.
 
 ## Architecture and feature status

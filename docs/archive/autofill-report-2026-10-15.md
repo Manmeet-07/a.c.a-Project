@@ -1,5 +1,9 @@
 # Resume and application autofill verification
 
+> Historical record. This dated report is preserved for traceability; its test
+> counts, reproduction commands, and feature descriptions are not a current
+> certification. Use the [project README](../../README.md) for current setup and scope.
+
 Tested 2026-10-15 with synthetic PDFs only. The user's main workspace on port 3000 was not populated or changed by the browser tests; an isolated ACA instance on port 3103 was used.
 
 ## Results

@@ -3,9 +3,9 @@
 A resume parsing, ATS tailoring, and application-tracking tool, built as a
 single Next.js app.
 
-Current engineering evidence and known limitations: [ACA audit](ACA_AUDIT_REPORT.md).
-Project explanation and interview preparation: [Recruiter guide](RECRUITER_GUIDE.md).
-Account protection and recovery: [Two-factor authentication](TWO_FACTOR_AUTH.md).
+Current engineering evidence and known limitations: [ACA audit](docs/security/audit-2026-10-21.md).
+Project explanation and interview preparation: [Recruiter guide](docs/project/recruiter-guide.md).
+Account protection and recovery: [Two-factor authentication](docs/security/two-factor-authentication.md).
 
 ## Scope vs. the original spec
 
@@ -21,7 +21,7 @@ Next.js app, with two deliberate deviations:
 1. **Next.js APIs with Firebase accounts.** Processing runs in Next.js Route
    Handlers on Vercel. Firebase Authentication protects access and Firestore
    stores private profiles and applications across devices. See
-   [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for local and deployed configuration.
+   [FIREBASE_SETUP.md](docs/getting-started/firebase.md) for local and deployed configuration.
 2. **No stealth/anti-bot-evasion automation.** The spec's Phase 3 calls for
    headless browser workers that rotate IPs and spoof fingerprints to
    auto-submit applications unattended. That's built specifically to defeat
@@ -51,7 +51,7 @@ Next.js app, with two deliberate deviations:
 The tailoring engine's *score* is always the deterministic heuristic above.
 Its suggestion phrasing can optionally use Anthropic after the user explicitly opts in. Paid calls require a signed visitor session, shared Redis rate/budget guards, and server-side credentials. Without all prerequisites, the app uses local suggestions.
 
-See [DEPLOYMENT.md](DEPLOYMENT.md) for configuration, request/resource limits, account spend limits, monitoring, privacy, and the tracked dev-dependency advisory. Do not enable paid AI using an API key alone.
+See [DEPLOYMENT.md](docs/deployment/vercel.md) for configuration, request/resource limits, account spend limits, monitoring, privacy, and the tracked dev-dependency advisory. Do not enable paid AI using an API key alone.
 
 ## Getting Started
 

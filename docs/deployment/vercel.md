@@ -48,7 +48,7 @@ Import the repository as a Next.js project; the default build command and Node 2
 
 ## Browser data
 
-Workspace data is now private to a verified Firebase account, with live Firestore synchronization and transactional tracker updates. Session-only authentication and memory-only Firestore caching clear the workspace on sign-out. Legacy browser data is imported only after explicit confirmation; the original browser copy is retained. Users can export private JSON backups, merge imports, and export a pre-import recovery snapshot until reload/sign-out. See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for account configuration, database rules, and tests. Contact extraction favors US layouts; the profile editor supports manual corrections and international names/phone/address text.
+Workspace data is now private to a verified Firebase account, with live Firestore synchronization and transactional tracker updates. Session-only authentication and memory-only Firestore caching clear the workspace on sign-out. Legacy browser data is imported only after explicit confirmation; the original browser copy is retained. Users can export private JSON backups, merge imports, and export a pre-import recovery snapshot until reload/sign-out. See [FIREBASE_SETUP.md](../getting-started/firebase.md) for account configuration, database rules, and tests. Contact extraction favors US layouts; the profile editor supports manual corrections and international names/phone/address text.
 
 ## Verification
 
